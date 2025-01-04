@@ -152,7 +152,7 @@ ls {imputed_path}/glimpse.{chromosome}.*.imputed.vcf.gz > {imputed_list}
     print(f"Submitted ligation job for chromosome {chromosome} with Job ID: {job_id}")
     return job_id
 
-def run_pipeline(fq):
+def run_glimpse(fq):
     for chromosome in PARAMETERS["chrs"]:
         print(f"Starting pipeline for chromosome {chromosome}...")
 

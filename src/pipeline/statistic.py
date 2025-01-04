@@ -4,7 +4,7 @@ import gzip
 from collections import defaultdict
 from helper.file_utils import save_results_to_csv
 from helper.path_define import ground_truth_vcf, statistic_outdir, statistic_nipt_outdir, glimpse_vcf, basevar_vcf, samid
-from helper.config import PATHS
+from helper.config import PATHS, PARAMETERS
 
 def process_vcf(vcf_path, method_name):
     """
@@ -75,7 +75,7 @@ def run_statistic(fq, chromosome):
 
 
 
-def run_statistic(fq, chromosome):
+def statistic(fq, chromosome):
     sample_name = samid(fq)
 
     if "_" not in sample_name:  # Mẫu đơn
@@ -99,3 +99,7 @@ def run_statistic(fq, chromosome):
         ground_truth_path_child = ground_truth_vcf(child, chromosome)
         output_dir_child = statistic_nipt_outdir(fq, chromosome, "child")
         compare_variants(ground_truth_path_child, basevar_path, glimpse_path, output_dir_child)
+
+def run_statistic(fq):
+    for chromosome in PARAMETERS["chrs"]:
+        statistic(fq, chromosome)

@@ -1,6 +1,8 @@
 from pipeline.generate import generate_single_sample, generate_nipt_sample
 from pipeline.alignment import run_alignment_pipeline
 from pipeline.basevar import run_basevar
+from pipeline.glimpse import run_glimpse
+from pipeline.statistic import run_statistic
 from pipeline.reference_panel_prepare import prepare_reference_panel
 from helper.config import PARAMETERS, TRIO_DATA
 from helper.metrics import calculate_average_coverage
@@ -9,6 +11,8 @@ from helper.metrics import calculate_average_coverage
 def pipeline_for_sample(fastq_dir):
     run_alignment_pipeline(fastq_dir)
     run_basevar(fastq_dir)
+    run_glimpse(fastq_dir)
+    run_statistic(fastq_dir)
     return
 
 
