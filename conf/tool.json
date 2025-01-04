@@ -1,0 +1,14 @@
+{
+    "bwa": "/usr/bin/bwa",
+    "samtools": "/usr/local/bin/samtools",
+    "gatk": "/home/huettt/Documents/nipt/GenomeAnalysisTK-3.8-1-0-gf15c1c3ef/GenomeAnalysisTK.jar",
+    "java": "/usr/bin/java",
+    "basevar": "/home/huettt/Documents/nipt/NIPT-human-genetics/basevar/bin/basevar",
+    "bedtools": "/usr/bin/bedtools",
+    "bgzip": "/usr/local/bin/bgzip",
+    "tabix": "/usr/local/bin/tabix",
+    "bcftools": "/usr/bin/bcftools",
+    "GLIMPSE_chunk": "/usr/local/bin/GLIMPSE2_chunk_static",
+    "GLIMPSE_ligate": "/usr/local/bin/GLIMPSE2_ligate_static",
+    "GLIMPSE_phase": "/usr/local/bin/GLIMPSE2_phase_static"
+}
