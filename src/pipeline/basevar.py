@@ -1,16 +1,18 @@
+import subprocess
 import os
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import basevar_outdir, bamlist_dir, vcf_list_path, basevar_vcf
-from helper.slurm import create_slurm_script, submit_to_slurm, wait_for_job_completion
+from helper.logger import setup_logger
 
-# Load global configurations
+# Thiết lập logger
+logger = setup_logger(log_file="logs/basevar_pipeline.log")
+
 REF = PATHS["ref"]
 REF_FAI = PATHS["ref_fai"]
 BCFTOOLS = TOOLS["bcftools"]
 TABIX = TOOLS["tabix"]
 DELTA = PARAMETERS["basevar"]["delta"]
 THREADS = PARAMETERS["basevar"]["threads"]
-
 
 def load_reference_fai(in_fai, chroms=None):
     ref = []
@@ -23,7 +25,6 @@ def load_reference_fai(in_fai, chroms=None):
             else:
                 ref.append([col[0], 1, int(col[1])])
     return ref
-
 
 def run_basevar_step(fq, chromosome):
     ref_fai = load_reference_fai(REF_FAI, [chromosome])
@@ -38,95 +39,83 @@ def run_basevar_step(fq, chromosome):
             region = f"{chr_id}:{start}-{end}"
             outfile_prefix = f"{chr_id}_{start}_{end}"
 
-            commands = f"""
-{TOOLS['basevar']} basetype \
-    -t {THREADS} \
-    -R {REF} \
-    -L {bamlist_path} \
-    -r {region} \
-    --min-af 0.001 \
-    --output-vcf {outdir}/{outfile_prefix}.vcf.gz \
-    --output-cvg {outdir}/{outfile_prefix}.cvg.tsv.gz \
-    --smart-rerun > {outdir}/{outfile_prefix}.log && \
-    echo "** {outfile_prefix} done **"
-"""
+            command = [
+                TOOLS['basevar'], "basetype",
+                "-t", str(THREADS),
+                "-R", REF,
+                "-L", bamlist_path,
+                "-r", region,
+                "--min-af", "0.001",
+                "--output-vcf", f"{outdir}/{outfile_prefix}.vcf.gz",
+                "--output-cvg", f"{outdir}/{outfile_prefix}.cvg.tsv.gz",
+                "--smart-rerun"
+            ]
 
-            script_name = os.path.join(outdir, f"basevar_{outfile_prefix}.slurm")
-            job_name = f"basevar_{outfile_prefix}"
+            log_file = f"{outdir}/{outfile_prefix}.log"
+            with open(log_file, "w") as log:
+                logger.info(f"Submitting BaseVar job for region {region}")
+                process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
+                jobs.append(process)
 
-            create_slurm_script(script_name, job_name, commands, outdir)
-            job_id = submit_to_slurm(script_name)
-            print(f"Submitted BaseVar job for {region} with Job ID: {job_id}")
-            jobs.append(job_id)
-
-    return jobs
+    for job in jobs:
+        job.wait()
+        if job.returncode != 0:
+            logger.error(f"BaseVar job failed with exit code {job.returncode}")
 
 
 def create_vcf_list(fq, chromosome):
     vcf_list = vcf_list_path(fq, chromosome)
-    print(f"=== Creating VCF list for chromosome {chromosome} ===")
+    logger.info(f"Creating VCF list for chromosome {chromosome}")
     with open(vcf_list, "w") as f:
         for root, _, files in os.walk(basevar_outdir(fq)):
             for file in files:
                 if file.endswith(".vcf.gz") and f"{chromosome}_" in file:
                     f.write(os.path.join(root, file) + "\n")
-    print(f"VCF list saved at {vcf_list}")
+    logger.info(f"VCF list saved at {vcf_list}")
     return vcf_list
 
-
-def merge_vcf_files_slurm(fq, chromosome):
+def merge_vcf_files(fq, chromosome):
     outdir = basevar_outdir(fq)
     vcf_list_path = create_vcf_list(fq, chromosome)
     merged_vcf = basevar_vcf(fq, chromosome)
 
-    print(f"Preparing SLURM script for merging VCF files for chromosome {chromosome}...")
-    commands = f"""
-{BCFTOOLS} concat \
-    --threads {THREADS} \
-    -a --rm-dups all \
-    -O z \
-    -o {merged_vcf} \
-    $(cat {vcf_list_path})
-"""
+    command = [
+        BCFTOOLS, "concat",
+        "--threads", str(THREADS),
+        "-a", "--rm-dups", "all",
+        "-O", "z",
+        "-o", merged_vcf
+    ] + [line.strip() for line in open(vcf_list_path)]
 
-    script_name = os.path.join(outdir, f"merge_vcf_{chromosome}.slurm")
-    job_name = f"merge_vcf_{chromosome}"
+    logger.info(f"Merging VCF files for chromosome {chromosome}")
+    process = subprocess.run(command, capture_output=True, text=True)
+    if process.returncode != 0:
+        logger.error(f"VCF merge failed: {process.stderr}")
+        raise RuntimeError(f"VCF merge failed: {process.stderr}")
+    logger.info(f"Merged VCF file created at {merged_vcf}")
+    return merged_vcf
 
-    create_slurm_script(script_name, job_name, commands, outdir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted VCF merge job for chromosome {chromosome} with Job ID: {job_id}")
-    return job_id, merged_vcf
+def index_vcf_file(vcf_path):
+    command = [TABIX, "-f", "-p", "vcf", vcf_path]
 
-
-def index_vcf_file_slurm(vcf_path):
-    print(f"Preparing SLURM script for indexing VCF file {vcf_path}...")
-    commands = f"""
-{TABIX} -f -p vcf {vcf_path}
-"""
-    script_name = f"{vcf_path}.index.slurm"
-    job_name = f"index_vcf"
-
-    create_slurm_script(script_name, job_name, commands, os.path.dirname(vcf_path))
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted VCF indexing job with Job ID: {job_id}")
-    return job_id
-
+    logger.info(f"Indexing VCF file {vcf_path}")
+    process = subprocess.run(command, capture_output=True, text=True)
+    if process.returncode != 0:
+        logger.error(f"VCF indexing failed: {process.stderr}")
+        raise RuntimeError(f"VCF indexing failed: {process.stderr}")
+    logger.info(f"VCF file indexed at {vcf_path}")
 
 def run_basevar(fq):
     for chromosome in PARAMETERS["chrs"]:
         # Step 1: Run BaseVar for the chromosome
-        basevar_jobs = run_basevar_step(fq, chromosome)
-        for job_id in basevar_jobs:
-            wait_for_job_completion(job_id)
+        run_basevar_step(fq, chromosome)
 
         # Step 2: Merge VCF files for the chromosome
-        merge_job_id, merged_vcf = merge_vcf_files_slurm(fq, chromosome)
-        wait_for_job_completion(merge_job_id)
+        merged_vcf = merge_vcf_files(fq, chromosome)
 
         # Step 3: Index the merged VCF file
-        index_job_id = index_vcf_file_slurm(merged_vcf)
-        wait_for_job_completion(index_job_id)
+        index_vcf_file(merged_vcf)
 
-        print(f"=== Completed processing for chromosome {chromosome} ===")
+        logger.info(f"Completed processing for chromosome {chromosome}")
 
-    print(f"=== Completed BaseVar pipeline for {fq} ===")
+    logger.info(f"Completed BaseVar pipeline for {fq}")

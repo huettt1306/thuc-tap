@@ -39,4 +39,5 @@ def main():
                     pipeline_for_sample(generate_nipt_sample(child_name, child_avg_coverage, mother_name, mother_avg_coverage, coverage, ff, index))            
 
 
-
+if __name__ == "__main__":
+    main()

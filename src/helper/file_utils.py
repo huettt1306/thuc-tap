@@ -1,18 +1,27 @@
 import gzip
 import subprocess
 import os
-from helper.config import PATHS, TOOLS
-from helper.slurm import create_slurm_script, submit_to_slurm
+from helper.config import PATHS, TOOLS, PARAMETERS
+from helper.logger import setup_logger
+
+logger = setup_logger(log_file="logs/operations.log")
 
 def download_file(url, output_path):
     """
     Hàm tải file từ URL.
     """
-    print(f"Downloading file from {url} to {output_path}...")
-    result = subprocess.run(["wget", "-O", output_path, url], capture_output=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to download file: {result.stderr.decode()}")
-    print(f"File downloaded to {output_path}.")
+    logger.info(f"Downloading file from {url} to {output_path} ")
+    command = ["wget", "-O", output_path, url]
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"Failed to download file: {result.stderr}")
+            raise RuntimeError(f"Failed to download file: {result.stderr}")
+        logger.info(f"File downloaded successfully to {output_path}.")
+    except Exception as e:
+        logger.error(f"Error during file download: {e}")
+        raise
 
 def read_fastq_file(name):
     """
@@ -65,6 +74,7 @@ def extract_vcf(sample_name, output_vcf_path, chr=None):
     """
     Tách mẫu VCF từ file tham chiếu bằng cách sử dụng bcftools.
     """
+    threads = PARAMETERS["bcftools"]["threads"]
     vcf_reference = PATHS["vcf_reference"]
 
     # Xây dựng lệnh bcftools
@@ -72,17 +82,19 @@ def extract_vcf(sample_name, output_vcf_path, chr=None):
         TOOLS["bcftools"], "view", vcf_reference,
         "--samples", sample_name,
         "-Oz", "-o", output_vcf_path,
+        f"--threads={threads}"
     ]
 
     if chr:
         vcf_command.extend(["--regions", chr])
 
-    # Tạo script SLURM
-    script_name = os.path.join(PATHS["vcf_ref"], f"extract_{sample_name}_{chr}.slurm")
-    job_name = f"extract_vcf_{sample_name}_{chr}"
-    commands = " ".join(vcf_command)
+    try:
+        result = subprocess.run(vcf_command, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"Failed to extract VCF: {result.stderr}")
+            raise RuntimeError(f"Failed to extract VCF: {result.stderr}")
+        logger.info(f"VCF file extracted successfully to {output_vcf_path}.")
+    except Exception as e:
+        logger.error(f"Error extracting VCF: {e}")
+        raise
 
-    create_slurm_script(script_name, job_name, commands, PATHS["vcf_directory"])
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted job to extract VCF for {sample_name}, chromosome {chr}, Job ID: {job_id}")
-    return job_id

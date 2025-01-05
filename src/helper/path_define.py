@@ -1,6 +1,5 @@
 import os
 from helper.config import PATHS
-from helper.slurm import wait_for_job_completion
 from helper.file_utils import extract_vcf
 
 def base_dir(fq):
@@ -54,8 +53,7 @@ def ground_truth_vcf(name, chromosome):
         print(f"Ground truth VCF already exists: {path}")
         return path
     
-    job_id = extract_vcf(name, path, chr=chromosome)
-    wait_for_job_completion(job_id)
+    extract_vcf(name, path, chr=chromosome)
     return path
 
 def statistic_outdir(fq, chromosome):

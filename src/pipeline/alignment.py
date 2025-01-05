@@ -1,171 +1,208 @@
-import os
+import os, subprocess
 from helper.config import TOOLS, PATHS
 from helper.path_define import samid, tmp_outdir, batch1_final_outdir
-from helper.slurm import create_slurm_script, submit_to_slurm, wait_for_job_completion
+from helper.logger import setup_logger
 
 # Cấu hình từ JSON
 REF = PATHS["ref"]
 REF_INDEX_PREFIX = PATHS["ref_index_prefix"]
 GATK_BUNDLE_DIR = PATHS["gatk_bundle_dir"]
 
+logger = setup_logger(log_file="logs/alignment.log")
+
 def run_bwa_alignment(sample_id, fq, outdir):
     """
-    Submit BWA alignment job to SLURM.
+    Chạy BWA alignment pipeline từ FASTQ sang BAM.
     """
-    print(f"Preparing SLURM script for BWA alignment of {fq}...")
-    commands = f"""
-sai_file={outdir}/{sample_id}.sai
-bam_file={outdir}/{sample_id}.bam
-sorted_bam={outdir}/{sample_id}.sorted.bam
-rmdup_bam={outdir}/{sample_id}.sorted.rmdup.bam
+    logger.info(f"Running BWA alignment for {sample_id}...")
 
-# BWA alignment
-{TOOLS['bwa']} aln -e 10 -t 8 -i 5 -q 0 {REF_INDEX_PREFIX} {fq} > $sai_file
+    sai_file = f"{outdir}/{sample_id}.sai"
+    bam_file = f"{outdir}/{sample_id}.bam"
+    sorted_bam = f"{outdir}/{sample_id}.sorted.bam"
+    rmdup_bam = f"{outdir}/{sample_id}.sorted.rmdup.bam"
 
-# BWA samse and BAM conversion
-{TOOLS['bwa']} samse -r "@RG\\tID:{sample_id}\\tPL:COMPLETE\\tSM:{sample_id}" {REF_INDEX_PREFIX} $sai_file {fq} | \
-    {TOOLS['samtools']} view -h -Sb - > $bam_file
+    try:
+        # BWA alignment
+        bwa_aln_command = [
+            TOOLS["bwa"], "aln", "-e", "10", "-t", "8", "-i", "5", "-q", "0",
+            PATHS["ref_index_prefix"], fq
+        ]
+        with open(sai_file, "w") as sai_output:
+            subprocess.run(bwa_aln_command, stdout=sai_output, check=True, text=True)
+        logger.info(f"BWA alignment completed for {sample_id}, output: {sai_file}")
 
-# Sort BAM
-{TOOLS['samtools']} sort -@ 8 -O bam -o $sorted_bam $bam_file
+        # BWA samse and BAM conversion
+        bwa_samse_command = [
+            TOOLS["bwa"], "samse", "-r", f"@RG\tID:{sample_id}\tPL:COMPLETE\tSM:{sample_id}",
+            PATHS["ref_index_prefix"], sai_file, fq
+        ]
+        samtools_view_command = [
+            TOOLS["samtools"], "view", "-h", "-Sb", "-o", bam_file, "-"
+        ]
+        bwa_process = subprocess.Popen(bwa_samse_command, stdout=subprocess.PIPE, text=True)
+        subprocess.run(samtools_view_command, stdin=bwa_process.stdout, check=True, text=True)
+        logger.info(f"BAM file created: {bam_file}")
 
-# Remove duplicates
-{TOOLS['samtools']} rmdup $sorted_bam $rmdup_bam
+        # Sort BAM
+        samtools_sort_command = [
+            TOOLS["samtools"], "sort", "-@", "8", "-O", "bam", "-o", sorted_bam, bam_file
+        ]
+        subprocess.run(samtools_sort_command, check=True, text=True)
+        logger.info(f"Sorted BAM file created: {sorted_bam}")
 
-# Index BAM
-{TOOLS['samtools']} index $rmdup_bam
-"""
-    script_name = f"{outdir}/{sample_id}_bwa_alignment.slurm"
-    job_name = f"{sample_id}_bwa_alignment"
+        # Remove duplicates
+        samtools_rmdup_command = [
+            TOOLS["samtools"], "rmdup", sorted_bam, rmdup_bam
+        ]
+        subprocess.run(samtools_rmdup_command, check=True, text=True)
+        logger.info(f"Removed duplicates, output: {rmdup_bam}")
 
-    # Create and submit SLURM script
-    create_slurm_script(script_name, job_name, commands, outdir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted BWA alignment job for {sample_id} with Job ID: {job_id}")
-    return job_id
+        # Index BAM
+        samtools_index_command = [
+            TOOLS["samtools"], "index", rmdup_bam
+        ]
+        subprocess.run(samtools_index_command, check=True, text=True)
+        logger.info(f"Index created for BAM file: {rmdup_bam}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during BWA alignment pipeline for {sample_id}: {e}")
+        raise
+
 
 def run_realign_pipeline(sample_id, outdir):
     """
-    Submit GATK Realignment job to SLURM.
+    Chạy GATK realignment pipeline từ BAM đầu vào.
     """
-    print(f"Preparing SLURM script for GATK realignment of {sample_id}...")
-    commands = f"""
-bam_file={outdir}/{sample_id}.sorted.rmdup.bam
-intervals_file={outdir}/{sample_id}.indel_target_intervals.list
-realigned_bam={outdir}/{sample_id}.sorted.rmdup.realign.bam
+    logger.info(f"Running GATK realignment for {sample_id}...")
 
-# RealignerTargetCreator
-{TOOLS['java']} -Xmx15g -jar {TOOLS['gatk']} \
-    -T RealignerTargetCreator \
-    -R {REF} \
-    -I $bam_file \
-    -known {GATK_BUNDLE_DIR}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-    -known {GATK_BUNDLE_DIR}/Homo_sapiens_assembly38.known_indels.vcf.gz \
-    -o $intervals_file
+    bam_file = f"{outdir}/{sample_id}.sorted.rmdup.bam"
+    intervals_file = f"{outdir}/{sample_id}.indel_target_intervals.list"
+    realigned_bam = f"{outdir}/{sample_id}.sorted.rmdup.realign.bam"
 
-# IndelRealigner
-{TOOLS['java']} -Xmx15g -jar {TOOLS['gatk']} \
-    -T IndelRealigner \
-    -R {REF} \
-    -I $bam_file \
-    -known {GATK_BUNDLE_DIR}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-    -known {GATK_BUNDLE_DIR}/Homo_sapiens_assembly38.known_indels.vcf.gz \
-    --targetIntervals $intervals_file \
-    -o $realigned_bam
-"""
-    script_name = f"{outdir}/{sample_id}_realign.slurm"
-    job_name = f"{sample_id}_realign"
+    try:
+        # RealignerTargetCreator
+        target_creator_command = [
+            TOOLS["java"], "-Xmx15g", "-jar", TOOLS["gatk"],
+            "-T", "RealignerTargetCreator",
+            "-R", PATHS["ref"],
+            "-I", bam_file,
+            "-known", f"{PATHS['gatk_bundle']}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz",
+            "-known", f"{PATHS['gatk_bundle']}/Homo_sapiens_assembly38.known_indels.vcf.gz",
+            "-o", intervals_file
+        ]
+        subprocess.run(target_creator_command, check=True, text=True)
+        logger.info(f"Indel target intervals created: {intervals_file}")
 
-    # Create and submit SLURM script
-    create_slurm_script(script_name, job_name, commands, outdir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted GATK realignment job for {sample_id} with Job ID: {job_id}")
-    return job_id
+        # IndelRealigner
+        realigner_command = [
+            TOOLS["java"], "-Xmx15g", "-jar", TOOLS["gatk"],
+            "-T", "IndelRealigner",
+            "-R", PATHS["ref"],
+            "-I", bam_file,
+            "-known", f"{PATHS['gatk_bundle']}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz",
+            "-known", f"{PATHS['gatk_bundle']}/Homo_sapiens_assembly38.known_indels.vcf.gz",
+            "--targetIntervals", intervals_file,
+            "-o", realigned_bam
+        ]
+        subprocess.run(realigner_command, check=True, text=True)
+        logger.info(f"Realigned BAM file created: {realigned_bam}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during GATK realignment pipeline for {sample_id}: {e}")
+        raise
+
 
 def run_bqsr_pipeline(sample_id, outdir):
     """
-    Submit Base Quality Score Recalibration (BQSR) job to SLURM.
+    Chạy GATK Base Quality Score Recalibration (BQSR) pipeline.
     """
-    print(f"Preparing SLURM script for BQSR of {sample_id}...")
-    commands = f"""
-realigned_bam={outdir}/{sample_id}.sorted.rmdup.realign.bam
-recal_table={outdir}/{sample_id}.recal_data.table
-bqsr_bam={outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bam
+    logger.info(f"Running BQSR pipeline for {sample_id}...")
 
-# BaseRecalibrator
-{TOOLS['java']} -jar {TOOLS['gatk']} \
-    -T BaseRecalibrator \
-    -nct 8 \
-    -R {REF} \
-    -I $realigned_bam \
-    --knownSites {GATK_BUNDLE_DIR}/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
-    --knownSites {GATK_BUNDLE_DIR}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-    --knownSites {GATK_BUNDLE_DIR}/Homo_sapiens_assembly38.known_indels.vcf.gz \
-    -o $recal_table
+    realigned_bam = f"{outdir}/{sample_id}.sorted.rmdup.realign.bam"
+    recal_table = f"{outdir}/{sample_id}.recal_data.table"
+    bqsr_bam = f"{outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bam"
 
-# PrintReads
-{TOOLS['java']} -jar {TOOLS['gatk']} \
-    -T PrintReads \
-    -nct 8 \
-    -R {REF} \
-    --BQSR $recal_table \
-    -I $realigned_bam \
-    -o $bqsr_bam
+    try:
+        # BaseRecalibrator
+        base_recalibrator_command = [
+            TOOLS["java"], "-jar", TOOLS["gatk"],
+            "-T", "BaseRecalibrator",
+            "-nct", "8",
+            "-R", PATHS["ref"],
+            "-I", realigned_bam,
+            "--knownSites", f"{PATHS['gatk_bundle']}/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
+            "--knownSites", f"{PATHS['gatk_bundle']}/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz",
+            "--knownSites", f"{PATHS['gatk_bundle']}/Homo_sapiens_assembly38.known_indels.vcf.gz",
+            "-o", recal_table
+        ]
+        subprocess.run(base_recalibrator_command, check=True, text=True)
+        logger.info(f"Recalibration table created: {recal_table}")
 
-# Index BAM
-{TOOLS['samtools']} index $bqsr_bam
-"""
-    script_name = f"{outdir}/{sample_id}_bqsr.slurm"
-    job_name = f"{sample_id}_bqsr"
+        # PrintReads
+        print_reads_command = [
+            TOOLS["java"], "-jar", TOOLS["gatk"],
+            "-T", "PrintReads",
+            "-nct", "8",
+            "-R", PATHS["ref"],
+            "--BQSR", recal_table,
+            "-I", realigned_bam,
+            "-o", bqsr_bam
+        ]
+        subprocess.run(print_reads_command, check=True, text=True)
+        logger.info(f"BQSR BAM file created: {bqsr_bam}")
 
-    # Create and submit SLURM script
-    create_slurm_script(script_name, job_name, commands, outdir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted BQSR job for {sample_id} with Job ID: {job_id}")
-    return job_id
+        # Index BAM
+        samtools_index_command = [
+            TOOLS["samtools"], "index", bqsr_bam
+        ]
+        subprocess.run(samtools_index_command, check=True, text=True)
+        logger.info(f"Index created for BQSR BAM file: {bqsr_bam}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during BQSR pipeline for {sample_id}: {e}")
+        raise
+
 
 def run_bam_stats_pipeline(sample_id, outdir):
     """
-    Submit BAM stats job to SLURM.
+    Chạy BAM stats pipeline để tạo thống kê BAM.
     """
-    print(f"Preparing SLURM script for BAM stats of {sample_id}...")
-    commands = f"""
-bam_file={outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bam
-stats_file={outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bamstats
+    logger.info(f"Running BAM stats for {sample_id}...")
 
-# BAM stats
-{TOOLS['samtools']} stats $bam_file > $stats_file
-"""
-    script_name = f"{outdir}/{sample_id}_bam_stats.slurm"
-    job_name = f"{sample_id}_bam_stats"
+    bam_file = f"{outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bam"
+    stats_file = f"{outdir}/{sample_id}.sorted.rmdup.realign.BQSR.bamstats"
 
-    # Create and submit SLURM script
-    create_slurm_script(script_name, job_name, commands, outdir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted BAM stats job for {sample_id} with Job ID: {job_id}")
-    return job_id
+    try:
+        # BAM stats
+        samtools_stats_command = [
+            TOOLS["samtools"], "stats", bam_file
+        ]
+        with open(stats_file, "w") as stats_output:
+            subprocess.run(samtools_stats_command, stdout=stats_output, check=True, text=True)
+        logger.info(f"BAM stats created: {stats_file}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during BAM stats pipeline for {sample_id}: {e}")
+        raise
 
 def move_final_files_pipeline(sample_id, tmp_dir, final_dir):
     """
-    Submit file move job to SLURM.
+    Di chuyển các file kết quả cuối cùng từ thư mục tạm sang thư mục đích.
     """
-    print(f"Preparing SLURM script to move final files for {sample_id}...")
-    commands = f"""
-# Move final files
-for ext in bam bam.bai bamstats; do
-    if [ -f {tmp_dir}/{sample_id}.sorted.rmdup.realign.BQSR.$ext ]; then
-        mv {tmp_dir}/{sample_id}.sorted.rmdup.realign.BQSR.$ext {final_dir}/
-    fi
-done
-"""
-    script_name = f"{tmp_dir}/{sample_id}_move_files.slurm"
-    job_name = f"{sample_id}_move_files"
+    logger.info(f"Moving final files for {sample_id}...")
 
-    # Create and submit SLURM script
-    create_slurm_script(script_name, job_name, commands, tmp_dir)
-    job_id = submit_to_slurm(script_name)
-    print(f"Submitted file move job for {sample_id} with Job ID: {job_id}")
-    return job_id
+    try:
+        for ext in ["bam", "bam.bai", "bamstats"]:
+            src_file = f"{tmp_dir}/{sample_id}.sorted.rmdup.realign.BQSR.{ext}"
+            dest_file = f"{final_dir}/{sample_id}.sorted.rmdup.realign.BQSR.{ext}"
+            if os.path.exists(src_file):
+                subprocess.run(["mv", src_file, dest_file], check=True)
+                logger.info(f"Moved {src_file} to {dest_file}")
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error moving final files for {sample_id}: {e}")
+        raise
+
 
 def run_alignment_pipeline(fq):
     """
@@ -179,29 +216,28 @@ def run_alignment_pipeline(fq):
     os.makedirs(tmp_dir, exist_ok=True)
     os.makedirs(final_dir, exist_ok=True)
 
-    print(f"=== Bắt đầu pipeline alignment cho mẫu {sample_id} ===")
-    print(f"FASTQ: {fq}")
-    print(f"Thư mục tạm: {tmp_dir}")
-    print(f"Thư mục kết quả cuối: {final_dir}")
+    logger.info(f"=== Bắt đầu pipeline alignment cho mẫu {sample_id} ===")
+    logger.info(f"FASTQ: {fq}")
+    logger.info(f"Thư mục tạm: {tmp_dir}")
+    logger.info(f"Thư mục kết quả cuối: {final_dir}")
 
-    # Step 1: Submit BWA alignment
-    bwa_job_id = run_bwa_alignment(sample_id, fq, tmp_dir)
-    wait_for_job_completion(bwa_job_id)
+    try:
+        # Step 1: Submit BWA alignment
+        run_bwa_alignment(sample_id, fq, tmp_dir)
 
-    # Step 2: Submit GATK realignment
-    realign_job_id = run_realign_pipeline(sample_id, tmp_dir)
-    wait_for_job_completion(realign_job_id)
+        # Step 2: Submit GATK realignment
+        run_realign_pipeline(sample_id, tmp_dir)
 
-    # Step 3: Submit BQSR
-    bqsr_job_id = run_bqsr_pipeline(sample_id, tmp_dir)
-    wait_for_job_completion(bqsr_job_id)
+        # Step 3: Submit BQSR
+        run_bqsr_pipeline(sample_id, tmp_dir)
 
-    # Step 4: Submit BAM stats
-    bam_stats_job_id = run_bam_stats_pipeline(sample_id, tmp_dir)
-    wait_for_job_completion(bam_stats_job_id)
+        # Step 4: Submit BAM stats
+        run_bam_stats_pipeline(sample_id, tmp_dir)
 
-    # Step 5: Submit file move job
-    move_files_job_id = move_final_files_pipeline(sample_id, tmp_dir, final_dir)
-    wait_for_job_completion(move_files_job_id)
+        # Step 5: Submit file move job
+        move_final_files_pipeline(sample_id, tmp_dir, final_dir)
 
-    print(f"=== Hoàn thành pipeline alignment cho mẫu {sample_id} ===")
+        logger.info(f"=== Hoàn thành pipeline alignment cho mẫu {sample_id} ===")
+    except Exception as e:
+        logger.error(f"Error during alignment pipeline for {sample_id}: {e}")
+        raise
