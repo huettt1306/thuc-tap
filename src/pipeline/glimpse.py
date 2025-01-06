@@ -1,13 +1,13 @@
 import subprocess
 import os
-import logging
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import bamlist_dir, glimpse_outdir
 from helper.path_define import filtered_vcf_path, filtered_tsv_path, chunks_path
 from helper.logger import setup_logger
 
 # Thiết lập logger
-logger = setup_logger(log_file="logs/glimpse_pipeline.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "glimpse_pipeline.log"))
+
 
 BCFTOOLS = TOOLS["bcftools"]
 BGZIP = TOOLS["bgzip"]

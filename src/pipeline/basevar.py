@@ -1,11 +1,14 @@
 import subprocess
 import os
+import shlex
+import concurrent.futures
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import basevar_outdir, bamlist_dir, vcf_list_path, basevar_vcf
 from helper.logger import setup_logger
 
 # Thiết lập logger
-logger = setup_logger(log_file="logs/basevar_pipeline.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "basevar_pipeline.log"))
+
 
 REF = PATHS["ref"]
 REF_FAI = PATHS["ref_fai"]
@@ -26,18 +29,20 @@ def load_reference_fai(in_fai, chroms=None):
                 ref.append([col[0], 1, int(col[1])])
     return ref
 
+
 def run_basevar_step(fq, chromosome):
     ref_fai = load_reference_fai(REF_FAI, [chromosome])
     bamlist_path = bamlist_dir(fq)
     outdir = basevar_outdir(fq)
+    os.makedirs(outdir,exist_ok=True)
 
-    jobs = []
     for chr_id, reg_start, reg_end in ref_fai:
         for i in range(reg_start - 1, reg_end, DELTA):
             start = i + 1
             end = i + DELTA if i + DELTA <= reg_end else reg_end
             region = f"{chr_id}:{start}-{end}"
             outfile_prefix = f"{chr_id}_{start}_{end}"
+            logger.info(f"Starting BaseVar for region {region} start at {start} and end at {end}")
 
             command = [
                 TOOLS['basevar'], "basetype",
@@ -45,22 +50,16 @@ def run_basevar_step(fq, chromosome):
                 "-R", REF,
                 "-L", bamlist_path,
                 "-r", region,
-                "--min-af", "0.001",
+                "--min-af=0.001",
                 "--output-vcf", f"{outdir}/{outfile_prefix}.vcf.gz",
                 "--output-cvg", f"{outdir}/{outfile_prefix}.cvg.tsv.gz",
-                "--smart-rerun"
+ #               "--smart-rerun"
             ]
 
             log_file = f"{outdir}/{outfile_prefix}.log"
             with open(log_file, "w") as log:
-                logger.info(f"Submitting BaseVar job for region {region}")
-                process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
-                jobs.append(process)
-
-    for job in jobs:
-        job.wait()
-        if job.returncode != 0:
-            logger.error(f"BaseVar job failed with exit code {job.returncode}")
+                subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
+                logger.info(f"Done BaseVar for region {region}") 
 
 
 def create_vcf_list(fq, chromosome):

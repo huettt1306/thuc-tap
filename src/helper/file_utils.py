@@ -4,7 +4,8 @@ import os
 from helper.config import PATHS, TOOLS, PARAMETERS
 from helper.logger import setup_logger
 
-logger = setup_logger(log_file="logs/operations.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "file_utils.log"))
+
 
 def download_file(url, output_path):
     """
@@ -39,15 +40,22 @@ def read_fastq_file(name):
     with gzip.open(fastq_path, 'rt') as f:
         while True:
             header = f.readline().strip()
-            if not header:  # Kết thúc file
+            sequence = f.readline().strip()
+            plus_separator = f.readline().strip()
+            quality = f.readline().strip()
+
+            # Kiểm tra số dòng đọc được có hợp lệ không (4 dòng cho mỗi read)
+            if not header or not sequence or not plus_separator or not quality:
+                logger.error(f"File {fastq_path} không hợp lệ: thiếu dữ liệu cho một hoặc nhiều reads.")
                 break
-            reads.append(f.readline().strip())
-            plus_separators.append(f.readline().strip())
-            qualities.append(f.readline().strip())
+
             headers.append(header)
+            reads.append(sequence)
+            plus_separators.append(plus_separator)
+            qualities.append(quality)
 
     print(f"Đã đọc dữ liệu FASTQ của mẫu {name} từ {fastq_path}")
-    return headers, reads, plus_separators, qualities
+    return reads, qualities, headers, plus_separators
 
 
 def save_to_fastq(output_file, selected_reads, selected_qualities, selected_headers, selected_plus_separators):

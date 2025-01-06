@@ -1,7 +1,5 @@
-import subprocess
-import os
-import logging
 import pandas as pd
+import os
 from cyvcf2 import VCF
 from collections import defaultdict
 from helper.file_utils import save_results_to_csv
@@ -10,7 +8,8 @@ from helper.config import PATHS, PARAMETERS
 from helper.logger import setup_logger
 
 # Thiết lập logger
-logger = setup_logger(log_file="logs/statistic_pipeline.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "statistic_pipeline.log"))
+
 
 def process_vcf(vcf_path, method_name):
     """

@@ -15,12 +15,13 @@ def select_reads_with_indices(data, qualities, headers, plus_separators, indices
     selected_plus_separators = [plus_separators[i] for i in indices]
     return selected_reads, selected_qualities, selected_headers, selected_plus_separators
 
-def generate_random_reads_files(data, qualities, headers, plus_separators, coverage, avg_coverage, output_prefix):
+def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
         print(f"File {output_file} already exists. Skipping creation.")
         return output_file
 
+    data, qualities, headers, plus_separators = read_fastq_file(name)
     ratio = coverage / avg_coverage
     # Tạo mảng chỉ mục và không xáo trộn
     indices = list(range(len(data)))
@@ -33,15 +34,14 @@ def generate_random_reads_files(data, qualities, headers, plus_separators, cover
     )
     return save_to_fastq(output_file, selected_reads, selected_qualities, selected_headers, selected_plus_separators)
 
-def generate_merge_files(
-    child_data, child_qualities, child_headers, child_plus_separators,
-    mother_data, mother_qualities, mother_headers, mother_plus_separators,
-    coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix
-):
+def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
         print(f"File {output_file} already exists. Skipping creation.")
         return output_file
+    
+    child_data, child_qualities, child_headers, child_plus_separators = read_fastq_file(child_name)
+    mother_data, mother_qualities, mother_headers, mother_plus_separators = read_fastq_file(mother_name)
 
     child_ratio = ff * coverage / child_avg_coverage
     mother_ratio = (1 - ff) * coverage / mother_avg_coverage
@@ -67,7 +67,7 @@ def generate_merge_files(
     combined_headers = child_headers_selected + mother_headers_selected
     combined_plus = child_plus_selected + mother_plus_selected
 
-    # Không cần xáo trộn mảng chỉ mục
+    # Xáo trộn mảng chỉ mục
     indices = list(range(len(combined_reads)))
     random.shuffle(indices)
 
@@ -84,11 +84,11 @@ def generate_single_sample(name, avg_coverage, coverage, index):
     Tạo file dữ liệu tương ứng với cov và ind
     Return đường dẫn đến file fastq.gz tạo được
     """
-    headers, reads, plus, qualities = read_fastq_file(name)
+    
     sample_output_dir = os.path.join(PATHS["fastq_directory"], f"{coverage}x", name, f"sample_{index}")
     os.makedirs(sample_output_dir, exist_ok=True)
     output_prefix = os.path.join(sample_output_dir, name)
-    output_dir = generate_random_reads_files(reads, qualities, headers, plus, coverage, avg_coverage, output_prefix)
+    output_dir = generate_random_reads_files(name, coverage, avg_coverage, output_prefix)
     generated_files.append(output_dir)
     return output_dir
 
@@ -101,10 +101,7 @@ def generate_nipt_sample(child_name, child_avg_coverage, mother_name, mother_avg
     sample_output_dir = os.path.join(PATHS["fastq_directory"], f"{coverage}x", f"{child_name}_{mother_name}", f"{ff:.3f}", f"sample_{index}")
     os.makedirs(sample_output_dir, exist_ok=True)
     output_prefix = os.path.join(sample_output_dir, f"{child_name}_{mother_name}")
-    output_dir = generate_merge_files(
-        read_fastq_file(child_name), read_fastq_file(mother_name),
-        coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix
-    )
+    output_dir = generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix)
     generated_files.append(output_dir)
     return output_dir
  

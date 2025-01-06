@@ -1,12 +1,12 @@
 import subprocess
 import os
-import logging
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import vcf_prefix, get_vcf_path, filtered_tsv_path, filtered_vcf_path, chunks_path
 from helper.logger import setup_logger
 
 # Thiết lập logger
-logger = setup_logger(log_file="logs/reference_panel_pipeline.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "reference_panel_pipeline.log"))
+
 
 BCFTOOLS = TOOLS["bcftools"]
 BGZIP = TOOLS["bgzip"]
@@ -103,20 +103,35 @@ def process_snp_sites(chromosome):
 
     logger.info(f"Processing SNP sites for chromosome {chromosome}...")
     commands = [
-        [BCFTOOLS, "view", "-G", "-m", "2", "-M", "2", "-v", "snps", vcf_path, "-Oz", "-o", filtered_vcf, "--threads", "1"],
-        [TABIX, "-f", filtered_vcf],
-        [BCFTOOLS, "query", "-f", "%CHROM\t%POS\t%REF,%ALT\n", filtered_vcf, "|", BGZIP, "-c", "-o", tsv_output],
-        [TABIX, "-s1", "-b2", "-e2", tsv_output]
+        [BCFTOOLS, "view", "-G", "-m", "2", "-M", "2", "-v", "snps", vcf_path, "-Oz", "-o", filtered_vcf, "--threads", "8"],
+        [BCFTOOLS, "index", "-f", filtered_vcf],
     ]
 
+    # Chạy các lệnh bcftools view và index
     for command in commands:
-        process = subprocess.run(command, capture_output=True, text=True, shell=True)
+        process = subprocess.run(command, check=True)
         if process.returncode != 0:
             logger.error(f"Error processing SNP sites: {process.stderr}")
             raise RuntimeError(f"Error processing SNP sites: {process.stderr}")
 
+    # Chạy bcftools query và bgzip
+    logger.info(f"Running bcftools query and bgzip for chromosome {chromosome}...")
+    with open(tsv_output, "wb") as output_file:
+        query_command = [BCFTOOLS, "query", "-f", "%CHROM\\t%POS\\t%REF,%ALT\\n", filtered_vcf]
+        bgzip_command = [BGZIP, "-c"]
+        query_process = subprocess.Popen(query_command, stdout=subprocess.PIPE)
+        subprocess.run(bgzip_command, stdin=query_process.stdout, stdout=output_file, check=True)
+        query_process.stdout.close()
+        query_process.wait()
+
+    # Chạy tabix để tạo index cho tsv_output
+    logger.info(f"Running tabix for chromosome {chromosome}...")
+    tabix_command = [TABIX, "-s1", "-b2", "-e2", tsv_output]
+    subprocess.run(tabix_command, check=True)
+
     logger.info(f"Processed SNP sites for chromosome {chromosome}.")
     return filtered_vcf, tsv_output
+
 
 def chunk_reference_genome(chromosome, chunk_size=2, buffer_size=2):
     """

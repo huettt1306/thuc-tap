@@ -1,12 +1,14 @@
 import os
 import subprocess
-from helper.config import TOOLS, PATHS
-from helper.path_define import samid, tmp_outdir, batch1_final_outdir, bamlist_dir
+from helper.config import PIPELINE_CONFIG, PATHS
+from helper.path_define import samid, tmp_outdir, batch1_final_outdir
 
 # Cấu hình từ JSON
-REF = PATHS["ref"]
-REF_INDEX_PREFIX = PATHS["ref_index_prefix"]
-GATK_BUNDLE_DIR = PATHS["gatk_bundle_dir"]
+TOOLS = PIPELINE_CONFIG["tools"]
+RESOURCES = PIPELINE_CONFIG["resources"]
+REF = PIPELINE_CONFIG["resources"]["ref"]
+REF_INDEX_PREFIX = PIPELINE_CONFIG["resources"]["ref_index_prefix"]
+GATK_BUNDLE_DIR = PIPELINE_CONFIG["resources"]["gatk_bundle_dir"] 
 
 def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bwa"], samtools=TOOLS["samtools"]):
     """
@@ -81,7 +83,7 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
         print("** [WORKFLOW_ERROR_INFO] bwa_sort_rmdup not done **")
         exit(1)
 
-def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"], gatk=TOOLS["gatk"], java=TOOLS["java"]):
+def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=RESOURCES["gatk_bundle_dir"], gatk=TOOLS["gatk"], java=TOOLS["java"]):
     """
     Runs the RealignerTargetCreator step using GATK.
     """
@@ -149,7 +151,7 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
 
     print("Realign pipeline completed successfully.")
 
-def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"], gatk=TOOLS["gatk"], samtools=TOOLS["samtools"], java=TOOLS["java"]):
+def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=RESOURCES["gatk_bundle_dir"], gatk=TOOLS["gatk"], samtools=TOOLS["samtools"], java=TOOLS["java"]):
     """
     Runs the Base Quality Score Recalibration (BQSR) pipeline using GATK and Samtools.
 
@@ -284,7 +286,7 @@ def run_bedtools(sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"], bg
         bqsr_bam = os.path.join(outdir, f"{sample_id}.sorted.rmdup.realign.BQSR.bam")
         cvg_bed_gz = os.path.join(outdir, f"{sample_id}.sorted.rmdup.realign.BQSR.cvg.bed.gz")
         finish_flag = os.path.join(outdir, "sorted_rmdup_realign_BQSR_cvg_bed.finish")
-        bam_list_file = bamlist_dir(fq)
+        bam_list_file = os.path.join(final_outdir, f"{sample_id}.list")
 
         # Step 1: Bedtools genome coverage
         print("Running Bedtools genome coverage...")

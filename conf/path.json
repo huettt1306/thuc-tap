@@ -1,4 +1,5 @@
 {
+    "logs": "/home/huettt/Documents/nipt/NIPT-human-genetics/working/logs",
     "fastq_directory": "/home/huettt/Documents/nipt/NIPT-human-genetics/working/fastq",
     "bam_directory": "/home/huettt/Documents/nipt/NIPT-human-genetics/working/bam",
     "fqlist": "/home/huettt/Documents/nipt/NIPT-human-genetics/working/fqlist",

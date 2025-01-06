@@ -1,9 +1,9 @@
-import subprocess
-from helper.config import TOOLS, PARAMETERS
+import subprocess, os
+from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.logger import setup_logger
 
 # Thiết lập logger riêng cho quá trình chuyển đổi
-logger = setup_logger(log_file="logs/conversion.log")
+logger = setup_logger(os.path.join(PATHS["logs"], "conversion.log"))
 
 def convert_bam_to_fastq(bam_path, output_fastq_path):
     """
