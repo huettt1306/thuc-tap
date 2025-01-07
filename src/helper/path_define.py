@@ -30,10 +30,16 @@ def glimpse_outdir(fq):
     return os.path.join(base_dir(fq), "glimpse_output")
 
 def vcf_prefix(chromosome):
-    return f"CCDG_14151_B01_GRM_WGS_2020-08-05_{chromosome}"
+    return f"CCDG_14151_B01_GRM_WGS_2020-08-05_{chromosome}.filtered.shapeit2-duohmm-phased"
 
 def get_vcf_path(chromosome):
-    return os.path.join(PATHS["reference_path"], f"{vcf_prefix(chromosome)}.filtered.shapeit2-duohmm-phased.vcf.gz")
+    return os.path.join(PATHS["reference_path"], f"{vcf_prefix(chromosome)}.vcf.gz")
+
+def get_tsv_path(chromosome):
+    return os.path.join(PATHS["reference_path"], f"{vcf_prefix(chromosome)}.vcf.gz")
+
+def norm_vcf_path(chromosome): 
+    return os.path.join(PATHS["reference_path"], f"{vcf_prefix(chromosome)}.biallelic.snp.maf0.001.vcf.gz")
 
 def filtered_vcf_path(chromosome): 
     return os.path.join(PATHS["reference_path"], f"{vcf_prefix(chromosome)}.biallelic.snp.maf0.001.sites.vcf.gz")

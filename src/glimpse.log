@@ -1,0 +1,52 @@
+
+[GLIMPSE2] Phase and impute low coverage sequencing data
+  * Authors              : Simone RUBINACCI & Olivier DELANEAU, University of Lausanne
+  * Contact              : simone.rubinacci@unil.ch & olivier.delaneau@unil.ch
+  * Version       	 : GLIMPSE2_phase v2.0.0 / commit = 3bed6d9 / release = 2022-12-07
+  * Citation	         : BiorXiv, (2022). DOI: https://doi.org/10.1101/2022.11.28.518213
+  *         	         : Nature Genetics 53, 120–126 (2021). DOI: https://doi.org/10.1038/s41588-020-00756-0
+  * Run date      	 : 07/01/2025 - 09:07:02
+
+Files:
+  * Input VCF/BCF likel. : [/home/huettt/Documents/nipt/NIPT-human-genetics/working/fastq/0.1x/HG02024_HG02025/0.100/sample_1/glimpse_output/GL_file_merged/glimpse.chr20.vcf.gz]
+  * Reference VCF        : [/home/huettt/Documents/nipt/gatk_bundle_hg38/reference_file/CCDG_14151_B01_GRM_WGS_2020-08-05_chr20.biallelic.snp.maf0.001.sites.vcf.gz]
+  * Genetic Map          : [/home/huettt/Documents/nipt/glimpse/maps/genetic_maps.b38/chr20.b38.gmap.gz]
+  * Output file          : [/home/huettt/Documents/nipt/NIPT-human-genetics/working/fastq/0.1x/HG02024_HG02025/0.100/sample_1/glimpse_output/imputed_file/glimpse.chr20.00.imputed.vcf]
+  * Output format        : [VCF format | NO compression]
+
+GLIMPSE_phase parameters:
+  * Input                : [FORMAT/PL field for genotype likelihoods]
+  * Imputation model     : [Reference panel imputation]
+  * Input region         : [chr20:1-3560194]
+  * Output region        : [chr20:1-2560185]
+  * Sparse MAF           : [0.001]
+  * Recombination rates  : [Given by genetic map]
+  * Ploidy               : [Only diploid samples in region]
+  * Keep monom. ref sites: [NO]
+
+Model parameters:
+  * #Burnin iterations   : [5]
+  * #Main iterations     : [15]
+  * Ne [eff. pop. size]  : [100000]
+  * Phase error rate     : [0.0001]
+  * Imputation error rate: [1e-12]
+  * Min value for hap GLs: [1e-10]
+
+Selection parameters:
+  * K init               : [1000]
+  * K pbwt               : [2000]
+  * PBWT depth           : [12]
+  * PBWT modulo (cM)     : [0.1]
+  * State list           : [No list provided]
+
+Other parameters
+  * Seed                 : [15052011]
+  * #Threads             : [1]
+
+Initialisation:
+
+Parsing specified genomic regions
+  * Input region  [chr20:1-3560194]
+  * Output region  [chr20:1-2560185]
+  * VCF/BCF scanning ...  * VCF/BCF scanning [Reg=chr20:1-3560194 / L=38572 (Li= 38572 (100%) - Lm= 0 (0%))]
+  * VCF/BCF scanning [L=38572 (Lrare= 0 (0.0%) - Lcommon= 38572 (100.0%))]

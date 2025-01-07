@@ -1,7 +1,7 @@
 import subprocess
 import os
 from helper.config import TOOLS, PARAMETERS, PATHS
-from helper.path_define import vcf_prefix, get_vcf_path, filtered_tsv_path, filtered_vcf_path, chunks_path
+from helper.path_define import vcf_prefix, get_vcf_path, filtered_tsv_path, filtered_vcf_path, chunks_path, norm_vcf_path
 from helper.logger import setup_logger
 
 # Thiết lập logger
@@ -44,8 +44,8 @@ def download_reference_panel(chromosome):
 
     logger.info(f"Downloading reference panel for chromosome {chromosome}...")
     commands = [
-        ["wget", "-c", url, "-O", vcf_path],
-        ["wget", "-c", f"{url}.tbi", "-O", index_path]
+        ["wget", "-c", url, "-P", reference_path],
+        ["wget", "-c", f"{url}.tbi", "-P", reference_path]
     ]
     
     for command in commands:
@@ -61,9 +61,8 @@ def normalize_and_filter_reference(chromosome):
     """
     Normalize and filter the reference panel.
     """
-    prefix = vcf_prefix(chromosome)
     vcf_path = get_vcf_path(chromosome)
-    output_vcf = os.path.join(reference_path, f"{prefix}.filtered.biallelic.snp.maf0.001.vcf.gz")
+    output_vcf = norm_vcf_path(chromosome)
 
     if os.path.exists(output_vcf) and os.path.exists(f"{output_vcf}.tbi"):
         logger.info(f"Filtered VCF already exists. Skipping normalization and filtering.")
@@ -72,9 +71,9 @@ def normalize_and_filter_reference(chromosome):
     logger.info(f"Normalizing and filtering VCF for chromosome {chromosome}...")
     command = [
         BCFTOOLS, "norm", "-m", "-any", vcf_path, "-Ou",
-        "--threads", "1", "|",
+        "--threads", "8", "|",
         BCFTOOLS, "view", "-m", "2", "-M", "2", "-v", "snps", "-i", "'MAF>0.001'",
-        "--threads", "1", "-Oz", "-o", output_vcf
+        "--threads", "8", "-Oz", "-o", output_vcf
     ]
 
     process = subprocess.run(" ".join(command), shell=True, capture_output=True, text=True)
@@ -82,7 +81,7 @@ def normalize_and_filter_reference(chromosome):
         logger.error(f"Error normalizing and filtering: {process.stderr}")
         raise RuntimeError(f"Error normalizing and filtering: {process.stderr}")
 
-    index_command = [TABIX, "-f", output_vcf]
+    index_command = [BCFTOOLS, "index", "-f", output_vcf]
     subprocess.run(index_command, check=True)
 
     logger.info(f"Filtered VCF created at {output_vcf}.")
@@ -92,8 +91,7 @@ def process_snp_sites(chromosome):
     """
     Process SNP sites.
     """
-    prefix = vcf_prefix(chromosome)
-    vcf_path = get_vcf_path(chromosome)
+    vcf_path = norm_vcf_path(chromosome)
     filtered_vcf = filtered_vcf_path(chromosome)
     tsv_output = filtered_tsv_path(chromosome)
 
@@ -133,11 +131,10 @@ def process_snp_sites(chromosome):
     return filtered_vcf, tsv_output
 
 
-def chunk_reference_genome(chromosome, chunk_size=2, buffer_size=2):
+def chunk_reference_genome(chromosome):
     """
     Chunk the reference genome.
     """
-    prefix = vcf_prefix(chromosome)
     vcf_path = get_vcf_path(chromosome)
     chunks_output = chunks_path(chromosome)
 
@@ -148,7 +145,7 @@ def chunk_reference_genome(chromosome, chunk_size=2, buffer_size=2):
     logger.info(f"Chunking reference genome for chromosome {chromosome}...")
     command = [
         GLIMPSE_CHUNK, "--input", vcf_path, "--region", chromosome,
-        "--window-mb", str(chunk_size), "--buffer-mb", str(buffer_size),
+        "--window-mb", "2", "--buffer-mb", "0.2",
         "--output", chunks_output, "--sequential"
     ]
 

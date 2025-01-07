@@ -1,8 +1,8 @@
 import subprocess
-import os
+import os, re
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import bamlist_dir, glimpse_outdir
-from helper.path_define import filtered_vcf_path, filtered_tsv_path, chunks_path
+from helper.path_define import filtered_vcf_path, filtered_tsv_path, chunks_path, norm_vcf_path
 from helper.logger import setup_logger
 
 # Thiết lập logger
@@ -89,7 +89,7 @@ def phase_genome(fq, chromosome):
     os.makedirs(imputed_path, exist_ok=True)
 
     map_file = os.path.join(MAP_PATH, f"{chromosome}.b38.gmap.gz")
-    reference_vcf = filtered_vcf_path(chromosome)
+    reference_vcf = norm_vcf_path(chromosome)
     chunk_file = chunks_path(chromosome)
     merged_vcf = os.path.join(glmergepath, f"glimpse.{chromosome}.vcf.gz")
 
@@ -123,6 +123,33 @@ def phase_genome(fq, chromosome):
             subprocess.run(bgzip_command, check=True)
             subprocess.run(tabix_command, check=True)
 
+def extract_chunk_id(fq, chromosome):
+    imputed_path = os.path.join(glimpse_outdir(fq), "imputed_file")
+    merged_path = os.path.join(glimpse_outdir(fq), "imputed_file_merged")
+    os.makedirs(merged_path, exist_ok=True)
+
+    imputed_list = os.path.join(imputed_path, f"glimpse.{chromosome}_imputed_list.txt")
+
+    # Hàm trích xuất chunk_id từ tên file
+    def get_chunk_id(filename):
+        match = re.search(rf"glimpse\.{chromosome}\.(\d+)\.imputed\.vcf\.gz", filename)
+        return int(match.group(1)) if match else float('inf')
+
+    # Lấy danh sách file phù hợp
+    files = [
+        file for file in os.listdir(imputed_path)
+        if file.startswith(f"glimpse.{chromosome}.") and file.endswith(".imputed.vcf.gz")
+    ]
+
+    # Sắp xếp file theo chunk_id tăng dần
+    sorted_files = sorted(files, key=get_chunk_id)
+
+    # Ghi danh sách file đã sắp xếp vào imputed_list
+    with open(imputed_list, "w") as imp_list:
+        for file in sorted_files:
+            imp_list.write(os.path.join(imputed_path, file) + "\n")
+
+
 def ligate_genome(fq, chromosome):
     imputed_path = os.path.join(glimpse_outdir(fq), "imputed_file")
     merged_path = os.path.join(glimpse_outdir(fq), "imputed_file_merged")
@@ -131,14 +158,12 @@ def ligate_genome(fq, chromosome):
     imputed_list = os.path.join(imputed_path, f"glimpse.{chromosome}_imputed_list.txt")
     output_vcf = os.path.join(merged_path, f"glimpse.{chromosome}_imputed.vcf")
 
-    with open(imputed_list, "w") as imp_list:
-        for file in os.listdir(imputed_path):
-            if file.endswith(f".{chromosome}.imputed.vcf.gz"):
-                imp_list.write(os.path.join(imputed_path, file) + "\n")
-
     command = [
         GLIMPSE_LIGATE, "--input", imputed_list, "--output", output_vcf
     ]
+
+    print(f"Command: {' '.join(command)}")
+
 
     logger.info(f"Ligating genome for chromosome {chromosome}")
     process = subprocess.run(command, capture_output=True, text=True)
@@ -157,15 +182,16 @@ def run_glimpse(fq):
         logger.info(f"Starting pipeline for chromosome {chromosome}...")
 
         # Step 1: Compute GLs
-        compute_gls(fq, chromosome)
+        #compute_gls(fq, chromosome)
 
         # Step 2: Merge GLs
-        merge_gls(fq, chromosome)
+        #merge_gls(fq, chromosome)
 
         # Step 3: Phase genome
-        phase_genome(fq, chromosome)
+        #phase_genome(fq, chromosome)
 
         # Step 4: Ligate genome
+        extract_chunk_id(fq, chromosome)
         ligate_genome(fq, chromosome)
 
         logger.info(f"Pipeline completed for chromosome {chromosome}.")

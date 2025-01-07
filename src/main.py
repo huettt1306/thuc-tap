@@ -10,7 +10,7 @@ from helper.metrics import calculate_average_coverage
 
 def pipeline_for_sample(fastq_dir):
     #run_alignment_pipeline(fastq_dir)
-    run_basevar(fastq_dir)
+    #run_basevar(fastq_dir)
     run_glimpse(fastq_dir)
     run_statistic(fastq_dir)
     return
