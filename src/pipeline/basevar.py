@@ -1,7 +1,5 @@
 import subprocess
 import os
-import shlex
-import concurrent.futures
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import basevar_outdir, bamlist_dir, vcf_list_path, basevar_vcf
 from helper.logger import setup_logger
@@ -53,7 +51,7 @@ def run_basevar_step(fq, chromosome):
                 "--min-af=0.001",
                 "--output-vcf", f"{outdir}/{outfile_prefix}.vcf.gz",
                 "--output-cvg", f"{outdir}/{outfile_prefix}.cvg.tsv.gz",
- #               "--smart-rerun"
+                "--smart-rerun"
             ]
 
             log_file = f"{outdir}/{outfile_prefix}.log"

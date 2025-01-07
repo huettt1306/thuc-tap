@@ -316,7 +316,7 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
                 os.rename(src_file, dst_file)
                 if file_suffix == ".bam":
                     with open(bam_list_file, "a") as bam_list:
-                        bam_list.write(dst_file)
+                        bam_list.write(f"{dst_file}\n")
 
     except subprocess.CalledProcessError as e:
         print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
