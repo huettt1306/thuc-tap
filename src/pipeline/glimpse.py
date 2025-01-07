@@ -182,13 +182,13 @@ def run_glimpse(fq):
         logger.info(f"Starting pipeline for chromosome {chromosome}...")
 
         # Step 1: Compute GLs
-        #compute_gls(fq, chromosome)
+        compute_gls(fq, chromosome)
 
         # Step 2: Merge GLs
-        #merge_gls(fq, chromosome)
+        merge_gls(fq, chromosome)
 
         # Step 3: Phase genome
-        #phase_genome(fq, chromosome)
+        phase_genome(fq, chromosome)
 
         # Step 4: Ligate genome
         extract_chunk_id(fq, chromosome)

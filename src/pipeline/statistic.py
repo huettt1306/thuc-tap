@@ -108,11 +108,11 @@ def statistic(fq, chromosome):
             child, mom = sample_name.split("_")
 
             ground_truth_path_mom = ground_truth_vcf(mom, chromosome)
-            output_dir_mom = statistic_nipt_outdir(fq, f"{chromosome}_mom")
+            output_dir_mom = statistic_nipt_outdir(fq, chromosome, "mom")
             compare_variants(ground_truth_path_mom, basevar_vcf(fq, chromosome), glimpse_vcf(fq, chromosome), output_dir_mom)
 
             ground_truth_path_child = ground_truth_vcf(child, chromosome)
-            output_dir_child = statistic_nipt_outdir(fq, f"{chromosome}_child")
+            output_dir_child = statistic_nipt_outdir(fq, chromosome, "child")
             compare_variants(ground_truth_path_child, basevar_vcf(fq, chromosome), glimpse_vcf(fq, chromosome), output_dir_child)
 
         logger.info(f"Completed statistics for sample {sample_name} on chromosome {chromosome}")

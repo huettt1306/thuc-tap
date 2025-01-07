@@ -275,7 +275,7 @@ def run_bam_stats(sample_id, outdir, samtools=TOOLS["samtools"]):
     print("BAM stats pipeline completed successfully.")
 
 
-def run_bedtools(sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"], bgzip=TOOLS["bgzip"], tabix=TOOLS["tabix"]):
+def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"], bgzip=TOOLS["bgzip"], tabix=TOOLS["tabix"]):
     """
     Runs Bedtools genome coverage analysis and compresses the output using bgzip.
     """
@@ -359,7 +359,7 @@ def run_alignment_pipeline(fq):
     print(f"Hoàn thành thống kê và coverage cho BAM.")
 
     # Step 5: Di chuyển file kết quả cuối cùng vào batch1_final_files
-    run_bedtools(samid(fq), tmp_outdir(fq), batch1_final_outdir(fq))
+    run_bedtools(fq, samid(fq), tmp_outdir(fq), batch1_final_outdir(fq))
     print(f"Kết quả đã được lưu tại {batch1_final_outdir(fq)}")
 
     print(f"=== Hoàn thành pipeline alignment cho mẫu {samid(fq)} ===")

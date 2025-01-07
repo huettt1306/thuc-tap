@@ -78,12 +78,11 @@ def save_results_to_csv(filename, df, output_dir):
     print(f"Saved: {file_path}")
 
 
-def extract_vcf(sample_name, output_vcf_path, chr=None):
+def extract_vcf(sample_name, vcf_reference, output_vcf_path):
     """
     Tách mẫu VCF từ file tham chiếu bằng cách sử dụng bcftools.
     """
     threads = PARAMETERS["bcftools"]["threads"]
-    vcf_reference = PATHS["vcf_reference"]
 
     # Xây dựng lệnh bcftools
     vcf_command = [
@@ -92,9 +91,6 @@ def extract_vcf(sample_name, output_vcf_path, chr=None):
         "-Oz", "-o", output_vcf_path,
         f"--threads={threads}"
     ]
-
-    if chr:
-        vcf_command.extend(["--regions", chr])
 
     try:
         result = subprocess.run(vcf_command, capture_output=True, text=True)

@@ -53,13 +53,16 @@ def chunks_path(chromosome):
 def glimpse_vcf(fq, chromosome):
     return os.path.join(glimpse_outdir(fq), "imputed_file_merged", f"glimpse.{chromosome}_imputed.vcf.gz")
 
+def get_vcf_ref(chromosome):
+    return os.path.join(PATHS["vcf_directory"], f"20201028_CCDG_14151_B01_GRM_WGS_2020-08-05_{chromosome}.recalibrated_variants.vcf.gz")
+
 def ground_truth_vcf(name, chromosome):
     path = os.path.join(PATHS["vcf_directory"], f"{name}_{chromosome}.vcf.gz")
     if os.path.exists(path):
         print(f"Ground truth VCF already exists: {path}")
         return path
     
-    extract_vcf(name, path, chr=chromosome)
+    extract_vcf(name, get_vcf_ref(chromosome), path)
     return path
 
 def statistic_outdir(fq, chromosome):
