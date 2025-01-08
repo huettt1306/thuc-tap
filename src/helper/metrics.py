@@ -2,8 +2,11 @@ import pysam, os
 import subprocess
 from helper.path_define import cram_path
 from helper.config import TOOLS, PATHS
+from helper.logger import setup_logger
+
 
 COVERAGE_FILE = os.path.join(PATHS["cram_directory"], "coverage.txt")
+logger = setup_logger(os.path.join(PATHS["logs"], "metrics.log"))
 
 def calculate_average_coverage(name):
     # Đường dẫn đến file CRAM
@@ -40,10 +43,10 @@ def calculate_average_coverage(name):
         return average_coverage
 
     except subprocess.CalledProcessError as e:
-        print(f"Error while running samtools or awk: {e.stderr}")
+        logger.info(f"Error while running samtools or awk: {e.stderr}")
         return None
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
         return None
 
 

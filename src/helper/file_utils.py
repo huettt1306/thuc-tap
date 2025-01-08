@@ -32,7 +32,7 @@ def read_fastq_file(name):
     """
     fastq_path = os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
 
-    print(f"Đọc dữ liệu từ {fastq_path}")
+    logger.info(f"Đọc dữ liệu từ {fastq_path}")
 
     if not os.path.exists(fastq_path):
         cram_path = os.path.join(PATHS["cram_directory"], f"{name}.final.cram")
@@ -60,7 +60,7 @@ def read_fastq_file(name):
             plus_separators.append(plus_separator)
             qualities.append(quality)
 
-    print(f"Đã đọc dữ liệu FASTQ của mẫu {name} từ {fastq_path}")
+    logger.info(f"Đã đọc dữ liệu FASTQ của mẫu {name} từ {fastq_path}")
     return reads, qualities, headers, plus_separators
 
 
@@ -71,7 +71,7 @@ def save_to_fastq(output_file, selected_reads, selected_qualities, selected_head
     with gzip.open(output_file, 'wt') as f:
         for header, read, plus, quality in zip(selected_headers, selected_reads, selected_plus_separators, selected_qualities):
             f.write(f'{header}\n{read}\n{plus}\n{quality}\n')
-    print(f"Đã lưu kết quả vào {output_file}")
+    logger.info(f"Đã lưu kết quả vào {output_file}")
     return output_file
 
 
@@ -81,7 +81,7 @@ def save_results_to_csv(filename, df, output_dir):
     # Save the dataframe to a corresponding CSV file
     file_path = os.path.join(output_dir, f"{filename}.csv")
     df.to_csv(file_path, index=False)
-    print(f"Saved: {file_path}")
+    logger.info(f"Saved: {file_path}")
 
 
 def extract_vcf(sample_name, vcf_reference, output_vcf_path):

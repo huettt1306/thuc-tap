@@ -3,6 +3,9 @@ import random
 from helper.file_utils import save_to_fastq, read_fastq_file
 from helper.config import PATHS, TOOLS
 from helper.path_define import fastq_path
+from helper.logger import setup_logger
+
+logger = setup_logger(os.path.join(PATHS["logs"], "generate.log"))
 
 generated_files = []
 
@@ -17,7 +20,7 @@ def filter_with_seqtk(input_file, output_file, fraction):
 def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
-        print(f"File {output_file} already exists. Skipping creation.")
+        logger.info(f"File {output_file} already exists. Skipping creation.")
         return output_file
 
     # Tính tỷ lệ đọc cần trích xuất
@@ -30,7 +33,7 @@ def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
 def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
-        print(f"File {output_file} already exists. Skipping creation.")
+        logger.info(f"File {output_file} already exists. Skipping creation.")
         return output_file
 
     # Tính toán tỷ lệ đọc cho con và mẹ

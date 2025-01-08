@@ -2,22 +2,25 @@ import os
 import subprocess
 from helper.config import TOOLS, PATHS
 from helper.path_define import samid, tmp_outdir, batch1_final_outdir, bamlist_dir
+from helper.logger import setup_logger
 
 # Cấu hình từ JSON
 REF = PATHS["ref"]
 REF_INDEX_PREFIX = PATHS["ref_index_prefix"]
 GATK_BUNDLE_DIR = PATHS["gatk_bundle_dir"]
 
+logger = setup_logger(os.path.join(PATHS["logs"], "alignment_pipeline.log"))
+
+
 def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bwa"], samtools=TOOLS["samtools"]):
     """
     Runs a pipeline for alignment and BAM file processing using BWA and Samtools.
     """
-    print(f"We are calculating {fq}")
-    print(f"We'll save it in {outdir}")
+    logger.info(f"Calculating {fq}. We'll save it in {outdir}")
 
     try:
         # Step 1: BWA alignment
-        print("\nRunning BWA alignment...")
+        logger.info("\nRunning BWA alignment...")
         sai_file = os.path.join(outdir, f"{sample_id}.sai")
         bam_file = os.path.join(outdir, f"{sample_id}.bam")
         sorted_bam = os.path.join(outdir, f"{sample_id}.sorted.bam")
@@ -51,41 +54,41 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
             bwa_process.stdout.close()
             bwa_process.wait()  # Ensure BWA process completes
 
-        print("** BWA done **")
+        logger.info("** BWA done **")
 
         # Step 2: Sorting BAM
-        print("Sorting BAM...")
+        logger.info("Sorting BAM...")
         subprocess.run([samtools, "sort", "-@", "8", "-O", "bam", "-o", sorted_bam, bam_file], check=True)
-        print("** BAM sorted done **")
+        logger.info("** BAM sorted done **")
 
         # Step 3: Removing duplicates
-        print("Removing duplicates...")
+        logger.info("Removing duplicates...")
         subprocess.run([samtools, "rmdup", sorted_bam, rmdup_bam], check=True)
-        print("** rmdup done **")
+        logger.info("** rmdup done **")
 
         # Step 4: Indexing BAM
-        print("Indexing BAM...")
+        logger.info("Indexing BAM...")
         subprocess.run([samtools, "index", rmdup_bam], check=True)
-        print("** index done **")
+        logger.info("** index done **")
 
         # Step 5: Create finish flag
         with open(finish_flag, "w") as finish_file:
             finish_file.write("Pipeline completed successfully.")
 
     except subprocess.CalledProcessError as e:
-        print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
+        logger.error(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
         exit(1)
 
     # Check if the finish flag was created
     if not os.path.exists(finish_flag):
-        print("** [WORKFLOW_ERROR_INFO] bwa_sort_rmdup not done **")
+        logger.error("** [WORKFLOW_ERROR_INFO] bwa_sort_rmdup not done **")
         exit(1)
 
 def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"], gatk=TOOLS["gatk"], java=TOOLS["java"]):
     """
     Runs the RealignerTargetCreator step using GATK.
     """
-    print("\nStarting realign pipeline...")
+    logger.info("\nStarting realign pipeline...")
 
     try:
         # Paths to input and output files
@@ -96,7 +99,7 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
         indel_realigner_finish_flag = os.path.join(outdir, "IndelRealigner.finish")
 
         # Step 1: RealignerTargetCreator
-        print("Running RealignerTargetCreator...")
+        logger.info("Running RealignerTargetCreator...")
         realigner_target_cmd = [
             java, "-Xmx15g", "-jar", gatk,
             "-T", "RealignerTargetCreator",
@@ -107,7 +110,7 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
             "-o", intervals_file
         ]
         subprocess.run(realigner_target_cmd, check=True)
-        print("** RealignerTargetCreator done **")
+        logger.info("** RealignerTargetCreator done **")
 
         # Create finish flag for RealignerTargetCreator
         with open(realigner_target_finish_flag, "w") as flag:
@@ -118,7 +121,7 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
             raise FileNotFoundError("RealignerTargetCreator did not complete successfully.")
 
         # Step 2: IndelRealigner
-        print("Running IndelRealigner...")
+        logger.info("Running IndelRealigner...")
         indel_realigner_cmd = [
             java, "-Xmx15g", "-jar", gatk,
             "-T", "IndelRealigner",
@@ -130,7 +133,7 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
             "-o", realigned_bam
         ]
         subprocess.run(indel_realigner_cmd, check=True)
-        print("** IndelRealigner done **")
+        logger.info("** IndelRealigner done **")
 
         # Create finish flag for IndelRealigner
         with open(indel_realigner_finish_flag, "w") as flag:
@@ -141,13 +144,13 @@ def run_bwa_realign(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bund
             raise FileNotFoundError("IndelRealigner did not complete successfully.")
 
     except subprocess.CalledProcessError as e:
-        print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
+        logger.info(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
         exit(1)
     except FileNotFoundError as e:
-        print(f"[WORKFLOW_ERROR_INFO] {e}")
+        logger.info(f"[WORKFLOW_ERROR_INFO] {e}")
         exit(1)
 
-    print("Realign pipeline completed successfully.")
+    logger.info("Realign pipeline completed successfully.")
 
 def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"], gatk=TOOLS["gatk"], samtools=TOOLS["samtools"], java=TOOLS["java"]):
     """
@@ -173,9 +176,9 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
         bam_index_flag = os.path.join(outdir, "bam_index.finish")
 
         # Step 1: Index the realigned BAM
-        print("Indexing realigned BAM...")
+        logger.info("Indexing realigned BAM...")
         subprocess.run([samtools, "index", realigned_bam], check=True)
-        print("** Index done **")
+        logger.info("** Index done **")
         with open(index_flag, "w") as flag:
             flag.write("Indexing completed successfully.")
 
@@ -183,7 +186,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             raise FileNotFoundError("Indexing of realigned BAM did not complete successfully.")
 
         # Step 2: BaseRecalibrator
-        print("Running BaseRecalibrator...")
+        logger.info("Running BaseRecalibrator...")
         base_recal_cmd = [
             java, "-jar", gatk,
             "-T", "BaseRecalibrator",
@@ -196,7 +199,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             "-o", recal_table
         ]
         subprocess.run(base_recal_cmd, check=True)
-        print("** BaseRecalibrator done **")
+        logger.info("** BaseRecalibrator done **")
         with open(recal_flag, "w") as flag:
             flag.write("BaseRecalibrator completed successfully.")
 
@@ -204,7 +207,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             raise FileNotFoundError("BaseRecalibrator did not complete successfully.")
 
         # Step 3: PrintReads
-        print("Running PrintReads...")
+        logger.info("Running PrintReads...")
         print_reads_cmd = [
             java, "-jar", gatk,
             "-T", "PrintReads",
@@ -215,7 +218,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             "-o", bqsr_bam
         ]
         subprocess.run(print_reads_cmd, check=True)
-        print("** PrintReads done **")
+        logger.info("** PrintReads done **")
         with open(print_reads_flag, "w") as flag:
             flag.write("PrintReads completed successfully.")
 
@@ -223,9 +226,9 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             raise FileNotFoundError("PrintReads did not complete successfully.")
 
         # Step 4: Index the BQSR BAM
-        print("Indexing BQSR BAM...")
+        logger.info("Indexing BQSR BAM...")
         subprocess.run([samtools, "index", bqsr_bam], check=True)
-        print("** BAM index done **")
+        logger.info("** BAM index done **")
         with open(bam_index_flag, "w") as flag:
             flag.write("BAM indexing completed successfully.")
 
@@ -233,13 +236,13 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
             raise FileNotFoundError("BAM indexing of BQSR BAM did not complete successfully.")
 
     except subprocess.CalledProcessError as e:
-        print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
+        logger.error(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
         exit(1)
     except FileNotFoundError as e:
-        print(f"[WORKFLOW_ERROR_INFO] {e}")
+        logger.error(f"[WORKFLOW_ERROR_INFO] {e}")
         exit(1)
 
-    print("BQSR pipeline completed successfully.")
+    logger.info("BQSR pipeline completed successfully.")
 
 def run_bam_stats(sample_id, outdir, samtools=TOOLS["samtools"]):
     """
@@ -252,10 +255,10 @@ def run_bam_stats(sample_id, outdir, samtools=TOOLS["samtools"]):
         bam_stats_flag = os.path.join(outdir, "bamstats.finish")
 
         # Step: Run Samtools stats
-        print("Running Samtools stats...")
+        logger.info("Running Samtools stats...")
         with open(bam_stats_file, "w") as stats_out:
             subprocess.run([samtools, "stats", bqsr_bam], stdout=stats_out, check=True)
-        print("** bamstats done **")
+        logger.info("** bamstats done **")
 
         # Create finish flag
         with open(bam_stats_flag, "w") as flag:
@@ -266,13 +269,13 @@ def run_bam_stats(sample_id, outdir, samtools=TOOLS["samtools"]):
             raise FileNotFoundError("bamstats did not complete successfully.")
 
     except subprocess.CalledProcessError as e:
-        print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
+        logger.info(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
         exit(1)
     except FileNotFoundError as e:
-        print(f"[WORKFLOW_ERROR_INFO] {e}")
+        logger.info(f"[WORKFLOW_ERROR_INFO] {e}")
         exit(1)
 
-    print("BAM stats pipeline completed successfully.")
+    logger.info("BAM stats pipeline completed successfully.")
 
 
 def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"], bgzip=TOOLS["bgzip"], tabix=TOOLS["tabix"]):
@@ -287,17 +290,17 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
         bam_list_file = bamlist_dir(fq)
 
         # Step 1: Bedtools genome coverage
-        print("Running Bedtools genome coverage...")
+        logger.info("Running Bedtools genome coverage...")
         bedtools_cmd = [
             bedtools, "genomecov", "-ibam", bqsr_bam, "-bga", "-split"
         ]
         with open(cvg_bed_gz, "wb") as cvg_out:
             subprocess.run(bedtools_cmd, stdout=subprocess.PIPE, check=True)
             subprocess.run([bgzip], stdin=subprocess.PIPE, stdout=cvg_out, check=True)
-        print("** sorted.rmdup.realign.BQSR.cvg.bed.gz done **")
+        logger.info("** sorted.rmdup.realign.BQSR.cvg.bed.gz done **")
 
         # Step 2: Index the compressed BED file
-        print("Indexing the compressed BED file with Tabix...")
+        logger.info("Indexing the compressed BED file with Tabix...")
         subprocess.run([tabix, "-p", "bed", cvg_bed_gz], check=True)
 
         # Create finish flag
@@ -308,7 +311,7 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
             raise FileNotFoundError("Bedtools pipeline did not complete successfully.")
 
         # Step 3: Move files to the final output directory, generate bam.list 
-        print("Moving final files to the output directory...")
+        logger.info("Moving final files to the output directory...")
         for file_suffix in [".bam", ".bam.bai", ".cvg.bed.gz", ".cvg.bed.gz.tbi"]:
             src_file = os.path.join(outdir, f"{sample_id}.sorted.rmdup.realign.BQSR{file_suffix}")
             dst_file = os.path.join(final_outdir, os.path.basename(src_file))
@@ -319,13 +322,13 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
                         bam_list.write(f"{dst_file}\n")
 
     except subprocess.CalledProcessError as e:
-        print(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
+        logger.error(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")
         exit(1)
     except FileNotFoundError as e:
-        print(f"[WORKFLOW_ERROR_INFO] {e}")
+        logger.error(f"[WORKFLOW_ERROR_INFO] {e}")
         exit(1)
 
-    print("Bedtools pipeline completed successfully.")
+    logger.info("Bedtools pipeline completed successfully.")
 
 
 def run_alignment_pipeline(fq):
@@ -337,29 +340,29 @@ def run_alignment_pipeline(fq):
     os.makedirs(tmp_outdir(fq), exist_ok=True)
     os.makedirs(batch1_final_outdir(fq), exist_ok=True)
 
-    print(f"=== Bắt đầu pipeline alignment cho mẫu {samid(fq)} ===")
-    print(f"FASTQ: {fq}")
-    print(f"Thư mục tạm: {tmp_outdir(fq)}")
-    print(f"Thư mục kết quả cuối: {batch1_final_outdir(fq)}")
+    logger.info(f"=== Bắt đầu pipeline alignment cho mẫu {samid(fq)} ===")
+    logger.info(f"FASTQ: {fq}")
+    logger.info(f"Thư mục tạm: {tmp_outdir(fq)}")
+    logger.info(f"Thư mục kết quả cuối: {batch1_final_outdir(fq)}")
 
     # Step 1: Chạy BWA để căn chỉnh và loại bỏ bản sao (duplicates)
     run_bwa_alignment(samid(fq), fq, tmp_outdir(fq))
-    print(f"Hoàn thành BWA alignment. Sample: {samid(fq)}")
+    logger.info(f"Hoàn thành BWA alignment. Sample: {samid(fq)}")
 
     # Step 2: Thực hiện realignment
     run_bwa_realign(samid(fq), tmp_outdir(fq))
-    print(f"Hoàn thành tmp_outdir(fq). Sample: {samid(fq)}")
+    logger.info(f"Hoàn thành tmp_outdir(fq). Sample: {samid(fq)}")
 
     # Step 3: Recalibrate Base Quality Scores (BQSR)
     run_bqsr(samid(fq), tmp_outdir(fq))
-    print(f"Hoàn thành BQSR. Sample: {samid(fq)}")
+    logger.info(f"Hoàn thành BQSR. Sample: {samid(fq)}")
 
     # Step 4: Tạo thống kê BAM và coverage
     run_bam_stats(samid(fq), tmp_outdir(fq))
-    print(f"Hoàn thành thống kê và coverage cho BAM.")
+    logger.info(f"Hoàn thành thống kê và coverage cho BAM.")
 
     # Step 5: Di chuyển file kết quả cuối cùng vào batch1_final_files
     run_bedtools(fq, samid(fq), tmp_outdir(fq), batch1_final_outdir(fq))
-    print(f"Kết quả đã được lưu tại {batch1_final_outdir(fq)}")
+    logger.info(f"Kết quả đã được lưu tại {batch1_final_outdir(fq)}")
 
-    print(f"=== Hoàn thành pipeline alignment cho mẫu {samid(fq)} ===")
+    logger.info(f"=== Hoàn thành pipeline alignment cho mẫu {samid(fq)} ===")

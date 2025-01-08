@@ -162,9 +162,6 @@ def ligate_genome(fq, chromosome):
         GLIMPSE_LIGATE, "--input", imputed_list, "--output", output_vcf
     ]
 
-    print(f"Command: {' '.join(command)}")
-
-
     logger.info(f"Ligating genome for chromosome {chromosome}")
     process = subprocess.run(command, capture_output=True, text=True)
     if process.returncode != 0:
