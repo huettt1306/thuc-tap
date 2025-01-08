@@ -3,6 +3,7 @@ import subprocess
 import os
 from helper.config import PATHS, TOOLS, PARAMETERS
 from helper.logger import setup_logger
+from helper.converter import convert_cram_to_fastq
 
 logger = setup_logger(os.path.join(PATHS["logs"], "file_utils.log"))
 
@@ -34,7 +35,12 @@ def read_fastq_file(name):
     print(f"Đọc dữ liệu từ {fastq_path}")
 
     if not os.path.exists(fastq_path):
-        raise FileNotFoundError(f"FASTQ file not found for sample {name} at {fastq_path}")
+        cram_path = os.path.join(PATHS["cram_directory"], f"{name}.final.cram")
+        convert_cram_to_fastq(cram_path, fastq_path) 
+        if not os.path.exists(fastq_path):
+            logger.error(f"Sample {name} cannot read.")
+            raise RuntimeError(f"Failed to read sample: {name}")
+
 
     headers, reads, plus_separators, qualities = [], [], [], []
     with gzip.open(fastq_path, 'rt') as f:
@@ -82,14 +88,13 @@ def extract_vcf(sample_name, vcf_reference, output_vcf_path):
     """
     Tách mẫu VCF từ file tham chiếu bằng cách sử dụng bcftools.
     """
-    threads = PARAMETERS["bcftools"]["threads"]
 
     # Xây dựng lệnh bcftools
     vcf_command = [
         TOOLS["bcftools"], "view", vcf_reference,
         "--samples", sample_name,
         "-Oz", "-o", output_vcf_path,
-        f"--threads={threads}"
+        f"--threads=8"
     ]
 
     try:

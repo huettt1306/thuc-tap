@@ -13,7 +13,6 @@ REF_FAI = PATHS["ref_fai"]
 BCFTOOLS = TOOLS["bcftools"]
 TABIX = TOOLS["tabix"]
 DELTA = PARAMETERS["basevar"]["delta"]
-THREADS = PARAMETERS["basevar"]["threads"]
 
 def load_reference_fai(in_fai, chroms=None):
     ref = []
@@ -44,7 +43,7 @@ def run_basevar_step(fq, chromosome):
 
             command = [
                 TOOLS['basevar'], "basetype",
-                "-t", str(THREADS),
+                "-t", "8",
                 "-R", REF,
                 "-L", bamlist_path,
                 "-r", region,
@@ -78,7 +77,7 @@ def merge_vcf_files(fq, chromosome):
 
     command = [
         BCFTOOLS, "concat",
-        "--threads", str(THREADS),
+        "--threads", "8",
         "-a", "--rm-dups", "all",
         "-O", "z",
         "-o", merged_vcf

@@ -1,8 +1,107 @@
 {
+    "VN046": {
+        "child": "HG02015",
+        "mother": "HG02016",
+        "father": "HG02017"
+    },
+    "VN047": {
+        "child": "HG02018",
+        "mother": "HG02019",
+        "father": "HG02020"
+    },
     "VN049": {
-        "father": "HG02026",
+        "child": "HG02024",
         "mother": "HG02025",
-        "child": "HG02024"
+        "father": "HG02026"
+    },
+    "VN050": {
+        "child": "HG02027",
+        "mother": "HG02028",
+        "father": "HG02029"
+    },
+    "VN051": {
+        "child": "HG02030",
+        "mother": "HG02031",
+        "father": "HG02032"
+    },
+    "VN060": {
+        "child": "HG02056",
+        "mother": "HG02057",
+        "father": "HG02058"
+    },
+    "VN061": {
+        "child": "HG02059",
+        "mother": "HG02060",
+        "father": "HG02061"
+    },
+    "VN064": {
+        "child": "HG02068",
+        "mother": "HG02069",
+        "father": "HG02070"
+    },
+    "VN065": {
+        "child": "HG02071",
+        "mother": "HG02072",
+        "father": "HG02073"
+    },
+    "VN066": {
+        "child": "HG02074",
+        "mother": "HG02075",
+        "father": "HG02076"
+    },
+    "VN067": {
+        "child": "HG02077",
+        "mother": "HG02078",
+        "father": "HG02079"
+    },
+    "VN068": {
+        "child": "HG02080",
+        "mother": "HG02081",
+        "father": "HG02082"
+    },
+    "VN069": {
+        "child": "HG02083",
+        "mother": "HG02084",
+        "father": "HG02085"
+    },
+    "VN076": {
+        "child": "HG02120",
+        "mother": "HG02121",
+        "father": "HG02122"
+    },
+    "VN078": {
+        "child": "HG02126",
+        "mother": "HG02127",
+        "father": "HG02128"
+    },
+    "VN079": {
+        "child": "HG02129",
+        "mother": "HG02130",
+        "father": "HG02131"
+    },
+    "VN080": {
+        "child": "HG02132",
+        "mother": "HG02133",
+        "father": "HG02134"
+    },
+    "VN081": {
+        "child": "HG02135",
+        "mother": "HG02136",
+        "father": "HG02137"
+    },
+    "VN087": {
+        "child": "HG02514",
+        "mother": "HG02513",
+        "father": "HG02512"
+    },
+    "VN090": {
+        "child": "HG02523",
+        "mother": "HG02522",
+        "father": "HG02521"
+    },
+    "VN91": {
+        "child": "HG02526",
+        "mother": "HG02525",
+        "father": "HG02524"
     }
 }
- 

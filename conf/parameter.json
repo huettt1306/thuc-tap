@@ -1,20 +1,7 @@
 {
-    "coverage": [0.1],
+    "coverage": [0.05, 0.1],
     "ff": [0.1],
     "startSampleIndex": 1,
     "endSampleIndex": 1,
-    "chrs": ["chr20"],
-    "basevar": {
-        "delta": 5000000,
-        "threads": 8
-    },
-    "samtools": {
-        "threads": 4  
-    },
-    "bwa": {
-        "threads": 16 
-    },
-    "bcftools": {
-        "threads": 8  
-    }
+    "chrs": ["chr20"]
 } 
