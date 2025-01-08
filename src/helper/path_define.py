@@ -2,8 +2,11 @@ import os
 from helper.config import PATHS
 from helper.file_utils import extract_vcf
 
+def cram_path(name):
+    return os.path.join(PATHS["cram_directory"], f"{name}.final.cram")
+
 def fastq_path(name):
-    os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
+    return os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
 
 def base_dir(fq):
     return os.path.dirname(fq)

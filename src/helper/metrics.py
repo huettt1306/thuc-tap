@@ -1,20 +1,52 @@
-import pysam
-import os
-from helper.file_utils import read_fastq_file
+import pysam, os
+import subprocess
+from helper.path_define import cram_path
+from helper.config import TOOLS, PATHS
 
+COVERAGE_FILE = os.path.join(PATHS["cram_directory"], "coverage.txt")
 
 def calculate_average_coverage(name):
-    """
-    Tính độ phủ trung bình của dữ liệu reads.
-    :param name: Tên mẫu (để hiển thị).
-    """
-    headers, reads, plus, qualities = read_fastq_file(name)
-    genome_size = 3_200_000_000  # Kích thước genome tham chiếu (ví dụ: GRCh38)
-    total_bases = sum(len(read) for read in reads)
-    average_coverage = total_bases / genome_size
+    # Đường dẫn đến file CRAM
+    cram_file = cram_path(name)
 
-    print(f"Độ phủ trung bình của mẫu {name}: {average_coverage:.4f}")
-    return average_coverage
+    # Kiểm tra nếu kết quả đã tồn tại trong coverage.txt
+    if os.path.exists(COVERAGE_FILE):
+        with open(COVERAGE_FILE, 'r') as f:
+            for line in f:
+                sample, coverage = line.strip().split('\t')
+                if sample == name:
+                    # Nếu đã có kết quả, trả về ngay mà không tính lại
+                    return float(coverage)
+
+    # Tính toán độ bao phủ bằng lệnh samtools và awk
+    try:
+        cmd = f"{TOOLS['samtools']} depth {cram_file} | awk '{{total+=$3; count++}} END {{print total/count}}'"
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True
+        )
+        
+        # Chuyển kết quả sang số thực
+        average_coverage = float(result.stdout.strip())
+
+        # Ghi kết quả vào file coverage.txt
+        with open(COVERAGE_FILE, 'a') as f:
+            f.write(f"{name}\t{average_coverage}\n")
+
+        return average_coverage
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error while running samtools or awk: {e.stderr}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
 
 def evaluate_vcf(ground_truth_file, test_file):
     """

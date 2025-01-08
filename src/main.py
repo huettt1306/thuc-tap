@@ -22,11 +22,11 @@ def main():
         print(f"######## PROCESSING TRIO: {trio_name} ########")
 
         child_name = trio_info["child"]
-        mother_name = trio_info["mother"]
+        #mother_name = trio_info["mother"]
         #father_name = trio_info["father"]
 
         child_avg_coverage = calculate_average_coverage(child_name)
-        mother_avg_coverage = calculate_average_coverage(mother_name)
+        #mother_avg_coverage = calculate_average_coverage(mother_name)
         #father_avg_coverage = calculate_average_coverage(father_name)
 
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
@@ -34,10 +34,10 @@ def main():
 
             for coverage in PARAMETERS["coverage"]:
                 pipeline_for_sample(generate_single_sample(child_name, child_avg_coverage, coverage, index))
-                pipeline_for_sample(generate_single_sample(mother_name, mother_avg_coverage, coverage, index))
+         #       pipeline_for_sample(generate_single_sample(mother_name, mother_avg_coverage, coverage, index))
                 
-                for ff in PARAMETERS["ff"]:
-                    pipeline_for_sample(generate_nipt_sample(child_name, child_avg_coverage, mother_name, mother_avg_coverage, coverage, ff, index))            
+          #      for ff in PARAMETERS["ff"]:
+           #         pipeline_for_sample(generate_nipt_sample(child_name, child_avg_coverage, mother_name, mother_avg_coverage, coverage, ff, index))            
 
 
 if __name__ == "__main__":
