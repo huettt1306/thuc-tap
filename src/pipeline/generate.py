@@ -1,19 +1,18 @@
-import os
+import os, subprocess
 import random
 from helper.file_utils import save_to_fastq, read_fastq_file
-from helper.config import PATHS
+from helper.config import PATHS, TOOLS
+from helper.path_define import fastq_path
 
 generated_files = []
 
-def select_reads_with_indices(data, qualities, headers, plus_separators, indices):
+def filter_with_seqtk(input_file, output_file, fraction):
     """
-    Chọn dữ liệu từ các mảng dựa trên chỉ mục ngẫu nhiên.
+    Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
     """
-    selected_reads = [data[i] for i in indices]
-    selected_qualities = [qualities[i] for i in indices]
-    selected_headers = [headers[i] for i in indices]
-    selected_plus_separators = [plus_separators[i] for i in indices]
-    return selected_reads, selected_qualities, selected_headers, selected_plus_separators
+    cmd = f"{TOOLS['seqtk']} sample -s100 {input_file} {fraction} | gzip > {output_file}"
+    subprocess.run(cmd, shell=True, check=True)
+    return output_file
 
 def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
@@ -21,62 +20,35 @@ def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
         print(f"File {output_file} already exists. Skipping creation.")
         return output_file
 
-    data, qualities, headers, plus_separators = read_fastq_file(name)
+    # Tính tỷ lệ đọc cần trích xuất
     ratio = coverage / avg_coverage
-    # Tạo mảng chỉ mục và không xáo trộn
-    indices = list(range(len(data)))
 
-    # Chọn dữ liệu dựa trên tỷ lệ (độ dài dữ liệu * tỷ lệ)
-    selected_indices = indices[:int(len(indices) * ratio)]
+    # Lọc với seqtk
+    return filter_with_seqtk(fastq_path(name), output_file, ratio)
 
-    selected_reads, selected_qualities, selected_headers, selected_plus_separators = select_reads_with_indices(
-        data, qualities, headers, plus_separators, selected_indices
-    )
-    return save_to_fastq(output_file, selected_reads, selected_qualities, selected_headers, selected_plus_separators)
 
 def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix):
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
         print(f"File {output_file} already exists. Skipping creation.")
         return output_file
-    
-    child_data, child_qualities, child_headers, child_plus_separators = read_fastq_file(child_name)
-    mother_data, mother_qualities, mother_headers, mother_plus_separators = read_fastq_file(mother_name)
 
+    # Tính toán tỷ lệ đọc cho con và mẹ
     child_ratio = ff * coverage / child_avg_coverage
     mother_ratio = (1 - ff) * coverage / mother_avg_coverage
 
-    # Tạo mảng chỉ mục và không xáo trộn
-    child_indices = list(range(len(child_data)))
-    mother_indices = list(range(len(mother_data)))
+    # Tạo các file FASTQ đã lọc cho con và mẹ
+    child_output = f"{output_prefix}_child.fastq.gz"
+    mother_output = f"{output_prefix}_mother.fastq.gz"
 
-    # Chọn dữ liệu cho con và mẹ mà không xáo trộn
-    child_selected_indices = child_indices[:int(len(child_indices) * child_ratio)]
-    mother_selected_indices = mother_indices[:int(len(mother_indices) * mother_ratio)]
+    filter_with_seqtk(fastq_path(child_name), child_output, child_ratio)
+    filter_with_seqtk(fastq_path(mother_name), mother_output, mother_ratio)
 
-    # Lấy dữ liệu từ các chỉ mục đã chọn
-    child_reads, child_qualities_selected, child_headers_selected, child_plus_selected = select_reads_with_indices(
-        child_data, child_qualities, child_headers, child_plus_separators, child_selected_indices
-    )
-    mother_reads, mother_qualities_selected, mother_headers_selected, mother_plus_selected = select_reads_with_indices(
-        mother_data, mother_qualities, mother_headers, mother_plus_separators, mother_selected_indices
-    )
+    # Hợp nhất các tệp con và mẹ
+    cmd_merge = f"{TOOLS['zcat']} {child_output} {mother_output} | shuf | gzip > {output_file}"
+    subprocess.run(cmd_merge, shell=True, check=True)
 
-    combined_reads = child_reads + mother_reads
-    combined_qualities = child_qualities_selected + mother_qualities_selected
-    combined_headers = child_headers_selected + mother_headers_selected
-    combined_plus = child_plus_selected + mother_plus_selected
-
-    # Xáo trộn mảng chỉ mục
-    indices = list(range(len(combined_reads)))
-    random.shuffle(indices)
-
-    shuffled_reads = [combined_reads[i] for i in indices]
-    shuffled_qualities = [combined_qualities[i] for i in indices]
-    shuffled_headers = [combined_headers[i] for i in indices]
-    shuffled_plus = [combined_plus[i] for i in indices]
-
-    return save_to_fastq(output_file, shuffled_reads, shuffled_qualities, shuffled_headers, shuffled_plus)
+    return output_file
 
 
 def generate_single_sample(name, avg_coverage, coverage, index):

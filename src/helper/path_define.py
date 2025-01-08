@@ -2,6 +2,9 @@ import os
 from helper.config import PATHS
 from helper.file_utils import extract_vcf
 
+def fastq_path(name):
+    os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
+
 def base_dir(fq):
     return os.path.dirname(fq)
 

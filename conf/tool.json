@@ -8,6 +8,8 @@
     "bgzip": "/usr/local/bin/bgzip",
     "tabix": "/usr/local/bin/tabix",
     "bcftools": "/usr/bin/bcftools",
+    "seqtk": "/usr/bin/seqtk",
+    "zcat": "/usr/bin/zcat",
     "GLIMPSE_chunk": "/usr/local/bin/GLIMPSE2_chunk_static",
     "GLIMPSE_ligate": "/usr/local/bin/GLIMPSE2_ligate_static",
     "GLIMPSE_phase": "/usr/local/bin/GLIMPSE2_phase_static"

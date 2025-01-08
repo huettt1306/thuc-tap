@@ -3,5 +3,8 @@
     "ff": [0.1],
     "startSampleIndex": 1,
     "endSampleIndex": 1,
-    "chrs": ["chr20"]
+    "chrs": ["chr20"],
+    "basevar": {
+        "delta": 5000000
+    }
 } 
