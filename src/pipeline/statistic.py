@@ -51,25 +51,6 @@ def compare_variants(ground_truth_path, basevar_path, glimpse_path, output_dir):
 
         save_results_to_csv("variant_comparison", merged_df, output_dir)
 
-        summary = defaultdict(int)
-        summary["Total_Variants_GroundTruth"] = ground_truth_df.shape[0]
-        summary["Total_Variants_BaseVar"] = basevar_df.shape[0]
-        summary["Total_Variants_Glimpse"] = glimpse_df.shape[0]
-        summary["Common_Variants"] = merged_df[
-            merged_df["GroundTruth"] & merged_df["BaseVar"] & merged_df["Glimpse"]
-        ].shape[0]
-        summary["Unique_to_GroundTruth"] = merged_df[
-            merged_df["GroundTruth"] & ~merged_df["BaseVar"] & ~merged_df["Glimpse"]
-        ].shape[0]
-        summary["Unique_to_BaseVar"] = merged_df[
-            merged_df["BaseVar"] & ~merged_df["GroundTruth"] & ~merged_df["Glimpse"]
-        ].shape[0]
-        summary["Unique_to_Glimpse"] = merged_df[
-            merged_df["Glimpse"] & ~merged_df["GroundTruth"] & ~merged_df["BaseVar"]
-        ].shape[0]
-
-        save_results_to_csv("summary_statistics", pd.DataFrame([summary]), output_dir)
-
         logger.info(f"Detailed variant comparison and summary statistics saved to {output_dir}")
     except Exception as e:
         logger.error(f"Error comparing variants: {e}")
