@@ -12,6 +12,7 @@
     "ref_index_prefix": "/home/huettt/Documents/nipt/gatk_bundle_hg38/v0/Homo_sapiens_assembly38.fasta",
     "gatk_bundle_dir": "/home/huettt/Documents/nipt/gatk_bundle_hg38/v0",
     "reference_path": "/home/huettt/Documents/nipt/gatk_bundle_hg38/reference_file",
-    "map_path": "/home/huettt/Documents/nipt/glimpse/maps/genetic_maps.b38"
+    "map_path": "/home/huettt/Documents/nipt/glimpse/maps/genetic_maps.b38",
+    "plot_directory": "/home/huettt/Documents/nipt/NIPT-human-genetics/working/plot"
 }
  

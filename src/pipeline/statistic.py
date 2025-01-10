@@ -25,6 +25,7 @@ def process_vcf(vcf_path, method_name):
                 "POS": record.POS,
                 "REF": record.REF,
                 "ALT": str(record.ALT[0]) if record.ALT else ".",
+                f"INFO_{method_name}": record.INFO,
                 method_name: True
             })
     except Exception as e:
@@ -41,35 +42,19 @@ def compare_variants(ground_truth_path, basevar_path, glimpse_path, output_dir):
     logger.info(f"Comparing variants for paths: {ground_truth_path}, {basevar_path}, {glimpse_path}")
 
     try:
-        ground_truth_df = process_vcf(ground_truth_path, "GroundTruth")
+        ground_truth_df = process_vcf(ground_truth_path, "Truth")
         basevar_df = process_vcf(basevar_path, "BaseVar")
         glimpse_df = process_vcf(glimpse_path, "Glimpse")
 
-        merged_df = pd.merge(ground_truth_df, basevar_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
-        merged_df = pd.merge(merged_df, glimpse_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(glimpse_df, basevar_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(ground_truth_df, merged_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
         merged_df.fillna(False, inplace=True)
 
-        save_results_to_csv("variant_comparison", merged_df, output_dir)
+        save_results_to_csv("variants", merged_df, output_dir)
 
         logger.info(f"Detailed variant comparison and summary statistics saved to {output_dir}")
     except Exception as e:
         logger.error(f"Error comparing variants: {e}")
-        raise
-
-def run_statistic(fq, chromosome):
-    try:
-        logger.info(f"Running statistics for sample {fq} and chromosome {chromosome}")
-
-        ground_truth_path = ground_truth_vcf(fq, chromosome)
-        basevar_path = basevar_vcf(fq, chromosome)
-        glimpse_path = glimpse_vcf(fq, chromosome)
-        output_dir = statistic_outdir(fq, chromosome)
-
-        compare_variants(ground_truth_path, basevar_path, glimpse_path, output_dir)
-
-        logger.info(f"Completed statistics for sample {fq} and chromosome {chromosome}")
-    except Exception as e:
-        logger.error(f"Error in run_statistic for sample {fq} and chromosome {chromosome}: {e}")
         raise
 
 def statistic(fq, chromosome):
