@@ -292,7 +292,7 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
         # Step 1: Bedtools genome coverage
         logger.info("Running Bedtools genome coverage...")
         bedtools_cmd = [
-            bedtools, "genomecov", "-ibam", bqsr_bam, "-bga", "-split", "-threads", f"{PARAMETERS['threads']}"
+            bedtools, "genomecov", "-ibam", bqsr_bam, "-bga", "-split"
         ]
         with open(cvg_bed_gz, "wb") as cvg_out:
             subprocess.run(bedtools_cmd, stdout=subprocess.PIPE, check=True)
@@ -335,6 +335,10 @@ def run_alignment_pipeline(fq):
     """
     Thực hiện pipeline alignment cho một mẫu FASTQ.
     """
+
+    if os.path.exists(batch1_final_outdir(fq)):
+        logger.info(f"Đã có thư mục kết quả alignment cho mẫu {samid(fq)}")
+        return
 
     # Tạo các thư mục nếu chưa tồn tại
     os.makedirs(tmp_outdir(fq), exist_ok=True)

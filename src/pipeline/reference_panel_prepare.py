@@ -157,6 +157,25 @@ def chunk_reference_genome(chromosome):
     logger.info(f"Chunk file created at {chunks_output}.")
     return chunks_output
 
+def prepare_gatk_bundle():
+    dbsnp = os.path.join(PATHS["gatk_bundle_dir"], "Homo_sapiens_assembly38.dbsnp138.vcf.gz"),
+
+    if not os.path.exists(dbsnp):
+        print(f"{dbsnp} not found. Compressing {dbsnp}...")
+        
+        # Sử dụng bgzip để nén tệp .vcf thành .vcf.gz
+        bgzip_cmd = [TOOLS['bgzip'], dbsnp]
+        subprocess.run(bgzip_cmd, check=True)
+        
+        # Lập chỉ mục tệp .vcf.gz bằng tabix
+        tabix_cmd = [TOOLS['tabix'], "-f", "-@", f"{PARAMETERS['threads']}", f"{dbsnp}.gz"]
+        subprocess.run(tabix_cmd, check=True)
+        
+        print(f"{dbsnp} has been compressed and indexed.")
+    else:
+        print(f"{dbsnp} already exists. No action needed.")
+
+
 def prepare_reference_panel():
     """
     Thực hiện toàn bộ quy trình chuẩn bị reference panel cho các chromosome.
@@ -167,6 +186,9 @@ def prepare_reference_panel():
         if check_reference_panel(chromosome):
             logger.info(f"Reference panel for {chromosome} already exists. Skipping.")
             continue
+        
+        # Step 0: verify gatk bundle
+        prepare_gatk_bundle()
 
         # Step 1: Download reference panel
         download_reference_panel(chromosome)

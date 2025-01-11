@@ -2,7 +2,7 @@ import subprocess
 import os, re
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import bamlist_dir, glimpse_outdir
-from helper.path_define import filtered_vcf_path, filtered_tsv_path, chunks_path, norm_vcf_path
+from helper.path_define import filtered_vcf_path, filtered_tsv_path, chunks_path, norm_vcf_path, glimpse_vcf
 from helper.logger import setup_logger
 
 # Thiết lập logger
@@ -32,12 +32,12 @@ def compute_gls(fq, chromosome):
 
         output_vcf = os.path.join(glpath, f"{name}.{chromosome}.vcf.gz")
         command = [
-            BCFTOOLS, "mpileup", "-@", f"{PARAMETERS['threads']}",
+            BCFTOOLS, "mpileup",
             "-f", REF, "-I", "-E", "-a", "FORMAT/DP",
             "-T", filtered_vcf_path(chromosome), "-r", chromosome, line, "-Ou"
         ]
         call_command = [
-            BCFTOOLS, "call", "-Aim", "-C", "alleles", "-@", f"{PARAMETERS['threads']}",
+            BCFTOOLS, "call", "-Aim", "-C", "alleles",
             "-T", filtered_tsv_path(chromosome), "-Oz", "-o", output_vcf
         ]
 
@@ -68,7 +68,7 @@ def merge_gls(fq, chromosome):
                 gl_list.write(os.path.join(glpath, file) + "\n")
 
     command = [
-        BCFTOOLS, "merge", "-@", f"{PARAMETERS['threads']}", "-m", "none", 
+        BCFTOOLS, "merge", "-m", "none", 
         "-r", chromosome, "-Oz", "-o", merged_vcf, "-l", gl_list_path
     ]
 
@@ -176,6 +176,10 @@ def ligate_genome(fq, chromosome):
 
 def run_glimpse(fq):
     for chromosome in PARAMETERS["chrs"]:
+        if os.path.exists(glimpse_vcf(fq, chromosome)):
+            logger.info(f"Đã có kết quả glimpse cho mẫu {fq} với {chromosome}")
+            return
+
         logger.info(f"Starting pipeline for chromosome {chromosome}...")
 
         # Step 1: Compute GLs

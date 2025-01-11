@@ -71,7 +71,6 @@ def create_vcf_list(fq, chromosome):
     return vcf_list
 
 def merge_vcf_files(fq, chromosome):
-    outdir = basevar_outdir(fq)
     vcf_list_path = create_vcf_list(fq, chromosome)
     merged_vcf = basevar_vcf(fq, chromosome)
 
@@ -103,6 +102,10 @@ def index_vcf_file(vcf_path):
 
 def run_basevar(fq):
     for chromosome in PARAMETERS["chrs"]:
+        if os.path.exists(basevar_vcf(fq, chromosome)):
+            logger.info(f"Đã có kết quả basevar cho mẫu {fq} với {chromosome}.")
+            return
+
         # Step 1: Run BaseVar for the chromosome
         run_basevar_step(fq, chromosome)
 
