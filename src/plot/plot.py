@@ -1,74 +1,8 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import precision_score, recall_score, f1_score
 from helper.config import PATHS, PARAMETERS, TRIO_DATA
 from helper.path_define import statistic_outdir, statistic_nipt_outdir, fastq_single_path, fastq_nipt_path
-
-# Các hàm hỗ trợ
-def is_rare(info_str):
-    """
-    Kiểm tra nếu biến thể là hiếm dựa trên giá trị AF_ESA trong chuỗi INFO.
-    """
-    try:
-        info_parts = dict(item.split('=') for item in info_str.split(';') if '=' in item)
-        af_esa = float(info_parts.get('AF_ESA', 1))  # Mặc định là 1 nếu không có AF_ESA
-        return af_esa < 0.001
-    except Exception:
-        return False
-
-def calculate_metrics(y_true, y_pred, prefix):
-    """
-    Tính toán Precision, Recall, F1 và trả về kết quả dưới dạng dict.
-    """
-    return {
-        f'precision_{prefix}': precision_score(y_true, y_pred),
-        f'recall_{prefix}': recall_score(y_true, y_pred),
-        f'f1_{prefix}': f1_score(y_true, y_pred),
-    }
-
-def compute_general_statistics(df):
-    """
-    Tính toán các thông số Precision, Recall, F1 cho tất cả các biến thể.
-    """
-    stats = {}
-    stats.update(calculate_metrics(df['truth'], df['glimpse'], 'glimpse'))
-    stats.update(calculate_metrics(df['truth'], df['basevar'], 'basevar'))
-
-    return stats
-
-def compute_rare_statistics(df):
-    """
-    Tính toán các thông số Precision, Recall, F1 cho các biến thể hiếm.
-    """
-    # Lọc biến thể hiếm
-    rare_df = df[df['INFO'].apply(is_rare)]
-    if rare_df.empty:
-        return {
-            'precision_glimpse_rare': None,
-            'recall_glimpse_rare': None,
-            'f1_glimpse_rare': None,
-            'precision_basevar_rare': None,
-            'recall_basevar_rare': None,
-            'f1_basevar_rare': None,
-        }
-
-    stats = {}
-    stats.update(calculate_metrics(rare_df['truth'], rare_df['glimpse'], 'glimpse_rare'))
-    stats.update(calculate_metrics(rare_df['truth'], rare_df['basevar'], 'basevar_rare'))
-
-    return stats
-
-def compute_statistics(df):
-    """
-    Tính toán các thông số Precision, Recall, F1 cho cả tổng thể và biến thể hiếm.
-    """
-
-    general_stats = compute_general_statistics(df)
-    rare_stats = compute_rare_statistics(df)
-
-    # Kết hợp kết quả
-    return {**general_stats, **rare_stats}
 
 # Hàm đọc và xử lý dữ liệu
 def read_and_process_single_samples(chromosome):
@@ -83,16 +17,11 @@ def read_and_process_single_samples(chromosome):
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
             for trio_name, trio_info in TRIO_DATA.items():
                 for role, name in trio_info.items():
-                    sample_path = os.path.join(statistic_outdir(fastq_single_path(name, coverage, index), chromosome), "variants.csv")
+                    sample_path = os.path.join(statistic_outdir(fastq_single_path(name, coverage, index), chromosome), "summary.csv")
                     if not os.path.exists(sample_path):
                         continue
-                    sample_df = pd.read_csv(sample_path)
-                    sample_dfs.append(sample_df)
 
-        combined_df = pd.concat(sample_dfs, ignore_index=True)
-        stats = compute_statistics(combined_df)
-        stats['cov'] = coverage
-        stats_list.append(stats) 
+# làm gì đó
 
     return pd.DataFrame(stats_list)
 
@@ -123,26 +52,8 @@ def read_and_process_nipt_samples(chromosome):
                         mother_df = pd.read_csv(mother_path)
                         mother_dfs.append(mother_df)
 
-            # Gộp dữ liệu của tất cả các mẫu con và mẹ
-            combined_child_df = pd.concat(child_dfs, ignore_index=True) if child_dfs else pd.DataFrame()
-            combined_mother_df = pd.concat(mother_dfs, ignore_index=True) if mother_dfs else pd.DataFrame()
-
-            # Tính toán chỉ số cho con
-            if not combined_child_df.empty:
-                child_stats = compute_statistics(combined_child_df)
-                child_stats['role'] = 'child'
-                child_stats['cov'] = coverage
-                child_stats['ff'] = ff
-                stats_list.append(child_stats)
-
-            # Tính toán chỉ số cho mẹ
-            if not combined_mother_df.empty:
-                mother_stats = compute_statistics(combined_mother_df)
-                mother_stats['role'] = 'mother'
-                mother_stats['cov'] = coverage
-                mother_stats['ff'] = ff
-                stats_list.append(mother_stats)
-
+# làm gì đó
+            
     return pd.DataFrame(stats_list)
 
 
