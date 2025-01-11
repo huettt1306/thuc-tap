@@ -25,7 +25,7 @@ def process_vcf(vcf_path, method_name):
                 "POS": record.POS,
                 "REF": record.REF,
                 "ALT": str(record.ALT[0]) if record.ALT else ".",
-                f"INFO_{method_name}": record.INFO,
+                f"INFO_{method_name}": dict(record.INFO),
                 method_name: True
             })
     except Exception as e:

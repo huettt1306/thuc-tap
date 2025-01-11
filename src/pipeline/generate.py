@@ -54,8 +54,8 @@ def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, 
     filter_with_seqtk(child_name, child_output, child_ratio)
     filter_with_seqtk(mother_name, mother_output, mother_ratio)
 
-    # Hợp nhất các tệp con và mẹ
-    cmd_merge = f"{TOOLS['zcat']} {child_output} {mother_output} | shuf | gzip > {output_file}"
+    # Hợp nhất các tệp con và mẹ mà không xáo trộn
+    cmd_merge = f"{TOOLS['zcat']} {child_output} {mother_output} | gzip > {output_file}"
     subprocess.run(cmd_merge, shell=True, check=True)
 
     return output_file
