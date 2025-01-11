@@ -1,10 +1,11 @@
 {
-    "coverage": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "coverage": [0.1, 0.3],
     "ff": [0.1, 0.15],
     "startSampleIndex": 1,
     "endSampleIndex": 1,
     "chrs": ["chr20"],
     "basevar": {
         "delta": 5000000
-    }
+    },
+    "threads": 32
 } 

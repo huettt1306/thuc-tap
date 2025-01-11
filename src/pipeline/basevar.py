@@ -43,7 +43,7 @@ def run_basevar_step(fq, chromosome):
 
             command = [
                 TOOLS['basevar'], "basetype",
-                "-t", "8",
+                "-t", f"{PARAMETERS['threads']}",
                 "-R", REF,
                 "-L", bamlist_path,
                 "-r", region,
@@ -77,7 +77,7 @@ def merge_vcf_files(fq, chromosome):
 
     command = [
         BCFTOOLS, "concat",
-        "--threads", "8",
+        "--threads", f"{PARAMETERS['threads']}",
         "-a", "--rm-dups", "all",
         "-O", "z",
         "-o", merged_vcf
@@ -92,7 +92,7 @@ def merge_vcf_files(fq, chromosome):
     return merged_vcf
 
 def index_vcf_file(vcf_path):
-    command = [TABIX, "-f", "-p", "vcf", vcf_path]
+    command = [TABIX, "-f", "-@", f"{PARAMETERS['threads']}", "-p", "vcf", vcf_path]
 
     logger.info(f"Indexing VCF file {vcf_path}")
     process = subprocess.run(command, capture_output=True, text=True)

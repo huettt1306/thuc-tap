@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_score, recall_score, f1_score
 from helper.config import PATHS, PARAMETERS, TRIO_DATA
-from helper.path_define import statistic_outdir, fastq_single_path, fastq_nipt_path
+from helper.path_define import statistic_outdir, statistic_nipt_outdir, fastq_single_path, fastq_nipt_path
 
 # Các hàm hỗ trợ
 def is_rare(info_str):
@@ -71,27 +71,80 @@ def compute_statistics(df):
     return {**general_stats, **rare_stats}
 
 # Hàm đọc và xử lý dữ liệu
-def read_and_process_all_samples(chromosome):
+def read_and_process_single_samples(chromosome):
     """
     Đọc và xử lý tất cả các mẫu từ các thư mục trong root_dir.
     """
     stats_list = []
     for coverage in PARAMETERS["coverage"]:
         combined_df = pd.DataFrame()
+        sample_dfs = []
+
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
             for trio_name, trio_info in TRIO_DATA.items():
                 for role, name in trio_info.items():
                     sample_path = os.path.join(statistic_outdir(fastq_single_path(name, coverage, index), chromosome), "variants.csv")
-                    if not sample_path:
+                    if not os.path.exists(sample_path):
                         continue
                     sample_df = pd.read_csv(sample_path)
-                    combined_df = pd.concat([combined_df, sample_df], ignore_index=True)
+                    sample_dfs.append(sample_df)
 
+        combined_df = pd.concat(sample_dfs, ignore_index=True)
         stats = compute_statistics(combined_df)
         stats['cov'] = coverage
         stats_list.append(stats) 
 
     return pd.DataFrame(stats_list)
+
+def read_and_process_nipt_samples(chromosome):
+    """
+    Đọc và xử lý tất cả các mẫu NIPT từ các thư mục trong root_dir.
+    """
+    stats_list = []
+    for coverage in PARAMETERS["coverage"]:
+        for ff in PARAMETERS["ff"]:
+            child_dfs = []  # Danh sách các DataFrame cho con
+            mother_dfs = []  # Danh sách các DataFrame cho mẹ
+
+            for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
+                for trio_name, trio_info in TRIO_DATA.items():
+                    # Đường dẫn đến dữ liệu của con và mẹ
+                    sample = fastq_nipt_path(trio_info["child"], trio_info["mother"], coverage, ff, index)
+                    child_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "child"), "variants.csv")
+                    mother_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "mother"), "variants.csv")
+
+                    # Đọc dữ liệu con
+                    if os.path.exists(child_path):
+                        child_df = pd.read_csv(child_path)
+                        child_dfs.append(child_df)
+
+                    # Đọc dữ liệu mẹ
+                    if os.path.exists(mother_path):
+                        mother_df = pd.read_csv(mother_path)
+                        mother_dfs.append(mother_df)
+
+            # Gộp dữ liệu của tất cả các mẫu con và mẹ
+            combined_child_df = pd.concat(child_dfs, ignore_index=True) if child_dfs else pd.DataFrame()
+            combined_mother_df = pd.concat(mother_dfs, ignore_index=True) if mother_dfs else pd.DataFrame()
+
+            # Tính toán chỉ số cho con
+            if not combined_child_df.empty:
+                child_stats = compute_statistics(combined_child_df)
+                child_stats['role'] = 'child'
+                child_stats['cov'] = coverage
+                child_stats['ff'] = ff
+                stats_list.append(child_stats)
+
+            # Tính toán chỉ số cho mẹ
+            if not combined_mother_df.empty:
+                mother_stats = compute_statistics(combined_mother_df)
+                mother_stats['role'] = 'mother'
+                mother_stats['cov'] = coverage
+                mother_stats['ff'] = ff
+                stats_list.append(mother_stats)
+
+    return pd.DataFrame(stats_list)
+
 
 # Hàm vẽ biểu đồ
 def plot_statistics(stats_df, output_dir):
@@ -124,6 +177,8 @@ def plot_statistics(stats_df, output_dir):
             plt.savefig(output_path)
             plt.close()
 
+## viết lại hàm plot_statistics_nipt tương ứng. Tôi cần 3 biểu đồ là Bubble Chart, Line Plot và Heatmap thể hiện tương quan giữa cov, ff với 3 chỉ số thống kê. Vẽ các biểu đồ riêng khi so sánh với ground-truth mẹ và con, tương ứng với code read_and_process_nipt_samples bên trên của bạn
+
 if __name__ == "__main__":
     for chromosome in PARAMETERS["chrs"]:
         
@@ -132,9 +187,10 @@ if __name__ == "__main__":
         os.makedirs(output_dir, exist_ok=True)
 
         # Đọc và xử lý dữ liệu từ tất cả các mẫu
-        stats_df = read_and_process_all_samples(chromosome)
+        stats_df = read_and_process_single_samples(chromosome)
 
         # Vẽ biểu đồ
         plot_statistics(stats_df, output_dir)
 
         print(f"Plots saved to {output_dir}")
+

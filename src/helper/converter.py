@@ -12,7 +12,7 @@ def convert_bam_to_fastq(bam_path, output_fastq_path):
     logger.info(f"Converting BAM file {bam_path} to FASTQ.GZ at {output_fastq_path} using 8 threads...")
 
     # Lệnh samtools với số threads
-    command = f"{TOOLS['samtools']} fastq -@ 8 -o {output_fastq_path} {bam_path}"
+    command = f"{TOOLS['samtools']} fastq -@ {PARAMETERS['threads']} -o {output_fastq_path} {bam_path}"
 
     try:
         # Gọi lệnh thông qua subprocess
@@ -36,7 +36,7 @@ def convert_cram_to_fastq(cram_path, output_fastq_path):
     logger.info(f"Converting CRAM file {cram_path} to FASTQ.GZ at {output_fastq_path} using 8 threads...")
 
     # Lệnh samtools với số threads
-    command = f"{TOOLS['samtools']} fastq -@ 8 -o {output_fastq_path} {cram_path}"
+    command = f"{TOOLS['samtools']} fastq -@ {PARAMETERS['threads']} -o {output_fastq_path} {cram_path}"
 
     try:
         # Gọi lệnh thông qua subprocess

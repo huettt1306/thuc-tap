@@ -71,9 +71,9 @@ def normalize_and_filter_reference(chromosome):
     logger.info(f"Normalizing and filtering VCF for chromosome {chromosome}...")
     command = [
         BCFTOOLS, "norm", "-m", "-any", vcf_path, "-Ou",
-        "--threads", "8", "|",
+        "--threads", f"{PARAMETERS['threads']}", "|",
         BCFTOOLS, "view", "-m", "2", "-M", "2", "-v", "snps", "-i", "'MAF>0.001'",
-        "--threads", "8", "-Oz", "-o", output_vcf
+        "--threads", f"{PARAMETERS['threads']}", "-Oz", "-o", output_vcf
     ]
 
     process = subprocess.run(" ".join(command), shell=True, capture_output=True, text=True)
@@ -101,8 +101,8 @@ def process_snp_sites(chromosome):
 
     logger.info(f"Processing SNP sites for chromosome {chromosome}...")
     commands = [
-        [BCFTOOLS, "view", "-G", "-m", "2", "-M", "2", "-v", "snps", vcf_path, "-Oz", "-o", filtered_vcf, "--threads", "8"],
-        [BCFTOOLS, "index", "-f", filtered_vcf],
+        [BCFTOOLS, "view", "-G", "-m", "2", "-M", "2", "-v", "snps", vcf_path, "-Oz", "-o", filtered_vcf, "--threads", f"{PARAMETERS['threads']}",],
+        [BCFTOOLS, "index", "-f", "-@", f"{PARAMETERS['threads']}", filtered_vcf],
     ]
 
     # Chạy các lệnh bcftools view và index
@@ -124,7 +124,7 @@ def process_snp_sites(chromosome):
 
     # Chạy tabix để tạo index cho tsv_output
     logger.info(f"Running tabix for chromosome {chromosome}...")
-    tabix_command = [TABIX, "-s1", "-b2", "-e2", tsv_output]
+    tabix_command = [TABIX, "-s1", "-b2", "-e2", "-@", f"{PARAMETERS['threads']}", tsv_output]
     subprocess.run(tabix_command, check=True)
 
     logger.info(f"Processed SNP sites for chromosome {chromosome}.")

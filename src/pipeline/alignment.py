@@ -1,6 +1,6 @@
 import os
 import subprocess
-from helper.config import TOOLS, PATHS
+from helper.config import TOOLS, PATHS, PARAMETERS
 from helper.path_define import samid, tmp_outdir, batch1_final_outdir, bamlist_dir
 from helper.logger import setup_logger
 
@@ -28,7 +28,7 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
         finish_flag = os.path.join(outdir, "bwa_sort_rmdup.finish")
 
         bwa_aln_cmd = [
-            bwa, "aln", "-e", "10", "-t", "8", "-i", "5", "-q", "0",
+            bwa, "aln", "-e", "10", "-t", f"{PARAMETERS['threads']}", "-i", "5", "-q", "0",
             ref_index_prefix, fq
         ]
         with open(sai_file, "w") as sai_out:
@@ -40,7 +40,7 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
             ref_index_prefix, sai_file, fq
         ]
 
-        samtools_view_cmd = [samtools, "view", "-h", "-Sb", "-"]
+        samtools_view_cmd = [samtools, "view", "-h", "-Sb", "-@", f"{PARAMETERS['threads']}", "-"]
 
         # Open the output BAM file for writing
         with open(bam_file, "wb") as bam_out:
@@ -58,17 +58,17 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
 
         # Step 2: Sorting BAM
         logger.info("Sorting BAM...")
-        subprocess.run([samtools, "sort", "-@", "8", "-O", "bam", "-o", sorted_bam, bam_file], check=True)
+        subprocess.run([samtools, "sort", "-@", f"{PARAMETERS['threads']}", "-O", "bam", "-o", sorted_bam, bam_file], check=True)
         logger.info("** BAM sorted done **")
 
         # Step 3: Removing duplicates
         logger.info("Removing duplicates...")
-        subprocess.run([samtools, "rmdup", sorted_bam, rmdup_bam], check=True)
+        subprocess.run([samtools, "markdup", "-@", f"{PARAMETERS['threads']}", sorted_bam, rmdup_bam], check=True)
         logger.info("** rmdup done **")
 
         # Step 4: Indexing BAM
         logger.info("Indexing BAM...")
-        subprocess.run([samtools, "index", rmdup_bam], check=True)
+        subprocess.run([samtools, "index", "-@", f"{PARAMETERS['threads']}", rmdup_bam], check=True)
         logger.info("** index done **")
 
         # Step 5: Create finish flag
@@ -177,7 +177,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
 
         # Step 1: Index the realigned BAM
         logger.info("Indexing realigned BAM...")
-        subprocess.run([samtools, "index", realigned_bam], check=True)
+        subprocess.run([samtools, "index", "-@", f"{PARAMETERS['threads']}", realigned_bam], check=True)
         logger.info("** Index done **")
         with open(index_flag, "w") as flag:
             flag.write("Indexing completed successfully.")
@@ -227,7 +227,7 @@ def run_bqsr(sample_id, outdir, ref=REF, gatk_bundle_dir=PATHS["gatk_bundle_dir"
 
         # Step 4: Index the BQSR BAM
         logger.info("Indexing BQSR BAM...")
-        subprocess.run([samtools, "index", bqsr_bam], check=True)
+        subprocess.run([samtools, "index", "-@", f"{PARAMETERS['threads']}", bqsr_bam], check=True)
         logger.info("** BAM index done **")
         with open(bam_index_flag, "w") as flag:
             flag.write("BAM indexing completed successfully.")
@@ -257,7 +257,7 @@ def run_bam_stats(sample_id, outdir, samtools=TOOLS["samtools"]):
         # Step: Run Samtools stats
         logger.info("Running Samtools stats...")
         with open(bam_stats_file, "w") as stats_out:
-            subprocess.run([samtools, "stats", bqsr_bam], stdout=stats_out, check=True)
+            subprocess.run([samtools, "stats", "-@", f"{PARAMETERS['threads']}", bqsr_bam], stdout=stats_out, check=True)
         logger.info("** bamstats done **")
 
         # Create finish flag
@@ -292,7 +292,7 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
         # Step 1: Bedtools genome coverage
         logger.info("Running Bedtools genome coverage...")
         bedtools_cmd = [
-            bedtools, "genomecov", "-ibam", bqsr_bam, "-bga", "-split"
+            bedtools, "genomecov", "-ibam", bqsr_bam, "-bga", "-split", "-threads", f"{PARAMETERS['threads']}"
         ]
         with open(cvg_bed_gz, "wb") as cvg_out:
             subprocess.run(bedtools_cmd, stdout=subprocess.PIPE, check=True)
@@ -301,7 +301,7 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
 
         # Step 2: Index the compressed BED file
         logger.info("Indexing the compressed BED file with Tabix...")
-        subprocess.run([tabix, "-p", "bed", cvg_bed_gz], check=True)
+        subprocess.run([tabix, "-p", "bed", "-@", f"{PARAMETERS['threads']}", cvg_bed_gz], check=True)
 
         # Create finish flag
         with open(finish_flag, "w") as flag:

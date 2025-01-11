@@ -32,12 +32,12 @@ def compute_gls(fq, chromosome):
 
         output_vcf = os.path.join(glpath, f"{name}.{chromosome}.vcf.gz")
         command = [
-            BCFTOOLS, "mpileup",
+            BCFTOOLS, "mpileup", "-@", f"{PARAMETERS['threads']}",
             "-f", REF, "-I", "-E", "-a", "FORMAT/DP",
             "-T", filtered_vcf_path(chromosome), "-r", chromosome, line, "-Ou"
         ]
         call_command = [
-            BCFTOOLS, "call", "-Aim", "-C", "alleles",
+            BCFTOOLS, "call", "-Aim", "-C", "alleles", "-@", f"{PARAMETERS['threads']}",
             "-T", filtered_tsv_path(chromosome), "-Oz", "-o", output_vcf
         ]
 
@@ -68,8 +68,8 @@ def merge_gls(fq, chromosome):
                 gl_list.write(os.path.join(glpath, file) + "\n")
 
     command = [
-        BCFTOOLS, "merge", "-m", "none", "-r", chromosome,
-        "-Oz", "-o", merged_vcf, "-l", gl_list_path
+        BCFTOOLS, "merge", "-@", f"{PARAMETERS['threads']}", "-m", "none", 
+        "-r", chromosome, "-Oz", "-o", merged_vcf, "-l", gl_list_path
     ]
 
     logger.info(f"Merging GL files for chromosome {chromosome}")
@@ -78,7 +78,7 @@ def merge_gls(fq, chromosome):
         logger.error(f"Error merging GLs for chromosome {chromosome}: {process.stderr}")
         raise RuntimeError(f"Error merging GLs for chromosome {chromosome}: {process.stderr}")
 
-    index_command = [TABIX, "-f", merged_vcf]
+    index_command = [TABIX, "-f", "-@", f"{PARAMETERS['threads']}", merged_vcf]
     subprocess.run(index_command, check=True)
 
     logger.info(f"Merged GL file created at {merged_vcf}")
@@ -118,7 +118,7 @@ def phase_genome(fq, chromosome):
                 raise RuntimeError(f"Error phasing chromosome {chromosome}, chunk {chunk_id}: {process.stderr}")
 
             bgzip_command = [BGZIP, output_vcf]
-            tabix_command = [TABIX, "-f", f"{output_vcf}.gz"]
+            tabix_command = [TABIX, "-f", "-@", f"{PARAMETERS['threads']}", f"{output_vcf}.gz"]
 
             subprocess.run(bgzip_command, check=True)
             subprocess.run(tabix_command, check=True)
@@ -169,7 +169,7 @@ def ligate_genome(fq, chromosome):
         raise RuntimeError(f"Error ligating chromosome {chromosome}: {process.stderr}")
 
     bgzip_command = [BGZIP, output_vcf]
-    tabix_command = [TABIX, "-f", f"{output_vcf}.gz"]
+    tabix_command = [TABIX, "-f", "-@", f"{PARAMETERS['threads']}", f"{output_vcf}.gz"]
 
     subprocess.run(bgzip_command, check=True)
     subprocess.run(tabix_command, check=True)

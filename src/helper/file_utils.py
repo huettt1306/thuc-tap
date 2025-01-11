@@ -94,7 +94,7 @@ def extract_vcf(sample_name, vcf_reference, output_vcf_path):
         TOOLS["bcftools"], "view", vcf_reference,
         "--samples", sample_name,
         "-Oz", "-o", output_vcf_path,
-        f"--threads=8"
+        f"--threads={PARAMETERS['threads']}"
     ]
 
     try:
