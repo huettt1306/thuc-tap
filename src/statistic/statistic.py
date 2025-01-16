@@ -86,7 +86,7 @@ def compare_nipt_variants(child_path, mother_path, father_path, basevar_path, gl
         
         child_df = process_vcf(child_path, "Child")
         mother_df = process_vcf(mother_path, "Mother")
-        father_df = process_vcf(mother_path, "Father")
+        father_df = process_vcf(father_path, "Father")
         basevar_df = process_vcf(basevar_path, "BaseVar")
         glimpse_df = process_vcf(glimpse_path, "Glimpse")
 
@@ -185,11 +185,8 @@ def calculate_af_nipt_statistics(df, af_percent):
         "Father Variants": 0,
         "BaseVar Variants": 0,
         "BaseVar Variants Child": 0,
-        "BaseVar Variants Child GT": 0,
         "BaseVar Variants Mother": 0,
-        "BaseVar Variants Mother GT": 0,
         "BaseVar Variants Father": 0,
-        "BaseVar Variants Father GT": 0,
         "Glimpse Variants": 0,
         "Glimpse Variants Child": 0,
         "Glimpse Variants Child GT": 0,
@@ -198,12 +195,10 @@ def calculate_af_nipt_statistics(df, af_percent):
         "Glimpse Variants Father": 0,
         "Glimpse Variants Father GT": 0,
         "Priv Father Variants": 0,
-        "Priv BaseVar Variants Father": 0,
         "Priv Glimpse Variants Father": 0,
         "Priv Mother Variants": 0,
         "Priv BaseVar Variants Mother": 0,
         "Priv Glimpse Variants Mother": 0,
-        "Diff BaseVar Variants Parent GT": 0,
         "Diff Glimpse Variants Parent GT": 0,
         "Diff Variants Parent GT": 0,
     }
@@ -224,7 +219,6 @@ def calculate_af_nipt_statistics(df, af_percent):
 
                 basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Child")
                 stats["BaseVar Variants Child"] += basevar_true
-                stats["BaseVar Variants Child GT"] += basevar_gt
 
                 glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Child")
                 stats["Glimpse Variants Child"] += glimpse_true
@@ -235,7 +229,6 @@ def calculate_af_nipt_statistics(df, af_percent):
 
                 basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Mother")
                 stats["BaseVar Variants Mother"] += basevar_true
-                stats["BaseVar Variants Mother GT"] += basevar_gt
 
                 glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Mother")
                 stats["Glimpse Variants Mother"] += glimpse_true
@@ -248,7 +241,6 @@ def calculate_af_nipt_statistics(df, af_percent):
 
                 elif row["GT_Father"] != row["GT_Mother"]:
                     stats["Diff Variants Parent GT"] += 1
-                    stats["Diff BaseVar Variants Parent GT"] += basevar_gt
                     stats["Diff Glimpse Variants Parent GT"] += glimpse_gt
 
             if row["Father"]:
@@ -256,7 +248,6 @@ def calculate_af_nipt_statistics(df, af_percent):
 
                 basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Father")
                 stats["BaseVar Variants Father"] += basevar_true
-                stats["BaseVar Variants Father GT"] += basevar_gt
 
                 glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Father")
                 stats["Glimpse Variants Father"] += glimpse_true
@@ -264,7 +255,6 @@ def calculate_af_nipt_statistics(df, af_percent):
 
                 if not row["Mother"]:
                     stats["Priv Father Variants"] += 1
-                    stats["Priv BaseVar Variants Father"] += basevar_true
                     stats["Priv Glimpse Variants Father"] += glimpse_true
 
     return stats
