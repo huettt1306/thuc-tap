@@ -52,3 +52,12 @@ def convert_cram_to_fastq(cram_path, output_fastq_path):
             logger.info(f"FASTQ file created successfully at {output_fastq_path}.")
     except Exception as e:
         logger.error(f"Failed to convert CRAM to FASTQ: {e}")
+
+
+def convert_genotype(genotype):
+    # Kiểm tra xem kiểu gen có đủ 2 phần tử và chúng là số nguyên
+    if len(genotype) >= 2 and isinstance(genotype[0], int) and isinstance(genotype[1], int):
+        # Đảm bảo sắp xếp theo thứ tự tăng dần
+        sorted_genotype = sorted([genotype[0], genotype[1]])
+        return f"{sorted_genotype[0]}/{sorted_genotype[1]}"
+    return None

@@ -11,8 +11,8 @@ def fastq_path(name):
 def fastq_single_path(name, coverage, index):
     return os.path.join(PATHS["fastq_directory"], f"{coverage}x", name, f"sample_{index}")
 
-def fastq_nipt_path(child, mother, coverage, ff, index):
-    return os.path.join(PATHS["fastq_directory"], f"{coverage}x", f"{child}_{mother}", f"{ff:.3f}", f"sample_{index}")
+def fastq_nipt_path(child, mother, father, coverage, ff, index):
+    return os.path.join(PATHS["fastq_directory"], f"{coverage}x", f"{child}_{mother}_{father}", f"{ff:.2f}", f"sample_{index}")
 
 def base_dir(fq):
     return os.path.dirname(fq)
@@ -80,5 +80,9 @@ def ground_truth_vcf(name, chromosome):
 def statistic_outdir(fq, chromosome):
     return os.path.join(base_dir(fq), "statistic_output", f"{chromosome}")
 
-def statistic_nipt_outdir(fq, chromosome, compare_with):
-    return os.path.join(base_dir(fq), f"statistic_output_{compare_with}", f"{chromosome}")
+def statistic_variants(fq, chromosome):
+    return os.path.join(statistic_outdir(fq, chromosome), "variants.csv")
+
+def statistic_summary(fq, chromosome):
+    return os.path.join(statistic_outdir(fq, chromosome), "summary.csv")
+    

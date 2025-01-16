@@ -75,11 +75,10 @@ def save_to_fastq(output_file, selected_reads, selected_qualities, selected_head
     return output_file
 
 
-def save_results_to_csv(filename, df, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
+def save_results_to_csv(file_path, df):
+    # Save the dataframe to the specified file path
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)  # Tạo thư mục nếu chưa tồn tại
 
-    # Save the dataframe to a corresponding CSV file
-    file_path = os.path.join(output_dir, f"{filename}.csv")
     df.to_csv(file_path, index=False)
     logger.info(f"Saved: {file_path}")
 

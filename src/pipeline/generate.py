@@ -74,14 +74,14 @@ def generate_single_sample(name, avg_coverage, coverage, index):
     return output_dir
 
 
-def generate_nipt_sample(child_name, child_avg_coverage, mother_name, mother_avg_coverage, coverage, ff, index):
+def generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index):
     """
     Tạo file nipt tương ứng với cov và ind
     Return đường dẫn đến file fastq.gz tạo được
     """
-    sample_output_dir = fastq_nipt_path(child_name, mother_name, coverage, ff, index)
+    sample_output_dir = fastq_nipt_path(child_name, mother_name, father_name, coverage, ff, index)
     os.makedirs(sample_output_dir, exist_ok=True)
-    output_prefix = os.path.join(sample_output_dir, f"{child_name}_{mother_name}")
+    output_prefix = os.path.join(sample_output_dir, f"{child_name}_{mother_name}_{father_name}")
     output_dir = generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix)
     return output_dir
  
