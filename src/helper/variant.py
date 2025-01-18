@@ -22,6 +22,12 @@ def get_af_variant(gt, af):
         return af
     return -1
 
+def af_in_range(gt, af_data, af_min, af_max):
+    af = get_af_variant(gt, af_data)
+    if af >= af_min and af <= af_max:
+        return True
+    return False
+
 def check_valid_GT(gt):
     """
     Kiểm tra 1 Kiểu gen có hợp lệ không
@@ -43,65 +49,56 @@ def alt_variant(gt):
     if allens[0] < 0 or allens[1] > 1:
         return False 
     return allens[1] == 1
-    
-def count_variant(row, method):
-    """
-    biến thể được liệt kê có trong cho mỗi method
-    """
-    if row[f"{method}"] and check_valid_GT(row[f"GT_{method}"]):
-        return 1
-    return 0 
 
-def count_alt_variant(row, method, af):
+def count_variant(row, method, af_min, af_max):
     """
     biến thể hiếm mà method tìm được
     """
-    if row[f"{method}"]:
-        if get_af_variant(row[f"GT_{method}"], row["AF"]) >= af:
+    if row[f"{method}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
             return 1
     return 0 
 
-def count_priv_gt(row, method, compare_with, af):
+def count_priv_gt(row, method, compare_with, af_min, af_max):
     """
     Đếm số lượng biến thể có trong method khác với biến thể trong compare_with
     """
     gt = row[f"GT_{method}"]
-    if row[f"{method}"] and gt != row[f"GT_{compare_with}"] and get_af_variant(gt, row["AF"]) >= af:
+    if row[f"{method}"] and gt != row[f"GT_{compare_with}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
         return 1
     return 0
 
-def count_same_gt(row, method, compare_with, af):
+def count_same_gt(row, method, compare_with, af_min, af_max):
     """
     Đếm số lượng biến thể có trong method giống với biến thể trong compare_with
     """
     gt = row[f"GT_{method}"]
-    if row[f"{method}"] and gt == row[f"GT_{compare_with}"] and get_af_variant(gt, row["AF"]) >= af:
+    if row[f"{method}"] and gt == row[f"GT_{compare_with}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
         return 1
     return 0
 
-def count_priv_true_gt(row, method, truth, compare_with, af):
+def count_priv_true_gt(row, method, truth, compare_with, af_min, af_max):
     """
     Biến thể method tìm được là đúng so với truth và khác so với compare_with
     """
     gt = row[f"GT_{method}"]
-    if row[f"{method}"] and gt == row[f"GT_{truth}"] and gt != row[f"GT_{compare_with}"] and get_af_variant(gt, row["AF"]) >= af:
+    if row[f"{method}"] and gt == row[f"GT_{truth}"] and gt != row[f"GT_{compare_with}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
         return 1
     return 0
 
-def count_same_true_gt(row, method, truth1, truth2, af):
+def count_same_true_gt(row, method, truth1, truth2, af_min, af_max):
     """
     Biến thể method tìm được là đúng so với truth1 và giống so với truth2
     """
     gt = row[f"GT_{method}"]
-    if row[f"{method}"] and gt == row[f"GT_{truth1}"] and gt == row[f"GT_{truth2}"] and get_af_variant(gt, row["AF"]) >= af:
+    if row[f"{method}"] and gt == row[f"GT_{truth1}"] and gt == row[f"GT_{truth2}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
         return 1
     return 0
 
-def count_same_false_gt(row, method, truth1, truth2, af):
+def count_same_false_gt(row, method, truth1, truth2, af_min, af_max):
     """
     Biến thể method tìm được là đúng so với truth1 và giống so với truth2
     """
     gt = row[f"GT_{method}"]
-    if row[f"{method}"] and gt != row[f"GT_{truth1}"] and gt != row[f"GT_{truth2}"] and get_af_variant(gt, row["AF"]) >= af:
+    if row[f"{method}"] and gt != row[f"GT_{truth1}"] and gt != row[f"GT_{truth2}"] and af_in_range(row[f"GT_{method}"], row["AF"], af_min, af_max):
         return 1
     return 0

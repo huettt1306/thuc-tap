@@ -40,7 +40,6 @@ def main():
             for coverage in PARAMETERS["coverage"]:
                 pipeline_for_sample(generate_single_sample(child_name, child_avg_coverage, coverage, index))
                 pipeline_for_sample(generate_single_sample(mother_name, mother_avg_coverage, coverage, index))
-                pipeline_for_sample(generate_single_sample(father_name, father_avg_coverage, coverage, index))
                 
                 for ff in PARAMETERS["ff"]:
                     pipeline_for_sample(generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index))            

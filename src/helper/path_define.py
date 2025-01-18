@@ -86,3 +86,6 @@ def statistic_variants(fq, chromosome):
 def statistic_summary(fq, chromosome):
     return os.path.join(statistic_outdir(fq, chromosome), "summary.csv")
     
+def statistic_rare_summary(fq, chromosome):
+    return os.path.join(statistic_outdir(fq, chromosome), "rare_summary.csv")
+    

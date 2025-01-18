@@ -1,9 +1,9 @@
 import pandas as pd
 import os
 from cyvcf2 import VCF
-from helper.variant import convert_genotype, count_alt_variant, count_same_gt, count_priv_gt, count_priv_true_gt, count_same_true_gt, count_same_false_gt
+from helper.variant import convert_genotype, count_variant, count_same_gt, count_priv_gt, count_priv_true_gt, count_same_true_gt, count_same_false_gt
 from helper.file_utils import save_results_to_csv
-from helper.path_define import ground_truth_vcf, statistic_variants, statistic_summary, glimpse_vcf, basevar_vcf, samid
+from helper.path_define import ground_truth_vcf, statistic_variants, statistic_summary, glimpse_vcf, basevar_vcf, samid, statistic_rare_summary
 from helper.config import PATHS, PARAMETERS
 from helper.logger import setup_logger
 
@@ -114,7 +114,7 @@ def compare_nipt_variants(child_path, mother_path, father_path, basevar_path, gl
         raise
 
 
-def calculate_af_statistics(df, af_percent):
+def calculate_af_statistics(df, af_percent, af_rare):
     """
     Tính toán thống kê cho một giá trị AF cho trước và trả về dưới dạng dictionary.
     """
@@ -129,16 +129,16 @@ def calculate_af_statistics(df, af_percent):
     # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
         af = af_percent / 100
-        stats["Truth Variants"] += count_alt_variant(row, "Truth", af)
-        stats["BaseVar Variants"] += count_alt_variant(row, "BaseVar", af)
-        stats["Glimpse Variants"] += count_alt_variant(row, "Glimpse", af)
-        stats["BaseVar True Variants"] += count_same_gt(row, "BaseVar", "Truth", af)
-        stats["Glimpse True Variants"] += count_same_gt(row, "Glimpse", "Truth", af)
+        stats["Truth Variants"] += count_variant(row, "Truth", af, af_rare)
+        stats["BaseVar Variants"] += count_variant(row, "BaseVar", af, af_rare)
+        stats["Glimpse Variants"] += count_variant(row, "Glimpse", af, af_rare)
+        stats["BaseVar True Variants"] += count_same_gt(row, "BaseVar", "Truth", af, af_rare)
+        stats["Glimpse True Variants"] += count_same_gt(row, "Glimpse", "Truth", af, af_rare)
 
     return stats
 
 
-def calculate_af_nipt_statistics(df, af_percent):
+def calculate_af_nipt_statistics(df, af_percent, af_rare):
     """
     Tính toán thống kê cho một giá trị AF cho trước.
     """
@@ -165,29 +165,29 @@ def calculate_af_nipt_statistics(df, af_percent):
     # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
         af = af_percent / 100
-        stats["Child Variants"] += count_alt_variant(row, "Child", af)
-        stats["Mother Variants"] += count_alt_variant(row, "Mother", af)
-        stats["Father Variants"] += count_alt_variant(row, "Father", af)
-        stats["BaseVar Variants"] += count_alt_variant(row, "BaseVar", af)
-        stats["Glimpse Variants"] += count_alt_variant(row, "Glimpse", af)
+        stats["Child Variants"] += count_variant(row, "Child", af, af_rare)
+        stats["Mother Variants"] += count_variant(row, "Mother", af, af_rare)
+        stats["Father Variants"] += count_variant(row, "Father", af, af_rare)
+        stats["BaseVar Variants"] += count_variant(row, "BaseVar", af, af_rare)
+        stats["Glimpse Variants"] += count_variant(row, "Glimpse", af, af_rare)
 
-        stats["Child Variants different from Mother"] += count_priv_gt(row, "Child", "Mother", af)
-        stats["Father Variants different from Mother"] += count_priv_gt(row, "Father", "Mother", af)
-        stats["Child Variants same as Mother"] += count_same_gt(row, "Child", "Mother", af)
-        stats["Father Variants same as Mother"] += count_same_gt(row, "Father", "Mother", af)
+        stats["Child Variants different from Mother"] += count_priv_gt(row, "Child", "Mother", af, af_rare)
+        stats["Father Variants different from Mother"] += count_priv_gt(row, "Father", "Mother", af, af_rare)
+        stats["Child Variants same as Mother"] += count_same_gt(row, "Child", "Mother", af, af_rare)
+        stats["Father Variants same as Mother"] += count_same_gt(row, "Father", "Mother", af, af_rare)
 
-        stats["Glimpse Variants same as Child"] += count_same_gt(row, "Glimpse", "Child", af)
-        stats["Glimpse Variants same as Mother"] += count_same_gt(row, "Glimpse", "Mother", af)
+        stats["Glimpse Variants same as Child"] += count_same_gt(row, "Glimpse", "Child", af, af_rare)
+        stats["Glimpse Variants same as Mother"] += count_same_gt(row, "Glimpse", "Mother", af, af_rare)
 
-        stats["Glimpse Variants same as Child but different from Mother"] += count_priv_true_gt(row, "Glimpse", "Child", "Mother", af)
-        stats["Glimpse Variants same as Mother but different from Child"] += count_priv_true_gt(row, "Glimpse", "Mother", "Child", af)
-        stats["Glimpse Variants same as Child and Mother"] += count_same_true_gt(row, "Glimpse", "Child", "Mother", af)
-        stats["Glimpse Variants Different from Child and Mother"] += count_same_false_gt(row, "Glimpse", "Child", "Mother", af)
+        stats["Glimpse Variants same as Child but different from Mother"] += count_priv_true_gt(row, "Glimpse", "Child", "Mother", af, af_rare)
+        stats["Glimpse Variants same as Mother but different from Child"] += count_priv_true_gt(row, "Glimpse", "Mother", "Child", af, af_rare)
+        stats["Glimpse Variants same as Child and Mother"] += count_same_true_gt(row, "Glimpse", "Child", "Mother", af, af_rare)
+        stats["Glimpse Variants Different from Child and Mother"] += count_same_false_gt(row, "Glimpse", "Child", "Mother", af, af_rare)
         
     return stats
 
 
-def generate_summary_statistics(df, output_file, type="single"):
+def generate_summary_statistics(df, output_file, af_rare, type="single"):
     """
     Tạo thống kê cho toàn bộ DataFrame theo từng AF.
     """
@@ -201,9 +201,9 @@ def generate_summary_statistics(df, output_file, type="single"):
         for af_percent in PARAMETERS["af"]:
             logger.info(f"Generating summary statistics for {af_percent}%....")
             if type == "nipt" :
-                stats = calculate_af_nipt_statistics(df, af_percent)
+                stats = calculate_af_nipt_statistics(df, af_percent, af_rare)
             else :
-                stats = calculate_af_statistics(df, af_percent)
+                stats = calculate_af_statistics(df, af_percent, af_rare)
 
             # Cập nhật giá trị AF
             stats_data["AF (%)"].append(f"{af_percent}%")
@@ -239,8 +239,9 @@ def statistic(fq, chromosome):
 
         if "_" not in sample_name:
             df = compare_variants(ground_truth_vcf(sample_name, chromosome), basevar_path, glimpse_path, statistic_variants(fq, chromosome))
-            generate_summary_statistics(df, statistic_summary(fq, chromosome))
-
+            generate_summary_statistics(df, statistic_summary(fq, chromosome), 1)
+            generate_summary_statistics(df, statistic_rare_summary(fq, chromosome), PARAMETERS["af_rare"])
+            
         else:
             child, mom, dad = sample_name.split("_")
             child_path = ground_truth_vcf(child, chromosome)
@@ -248,7 +249,8 @@ def statistic(fq, chromosome):
             father_path = ground_truth_vcf(dad, chromosome)
 
             df = compare_nipt_variants(child_path, mother_path, father_path, basevar_path, glimpse_path, statistic_variants(fq, chromosome))
-            generate_summary_statistics(df, statistic_summary(fq, chromosome), "nipt")
+            generate_summary_statistics(df, statistic_summary(fq, chromosome), 1, "nipt")
+            generate_summary_statistics(df, statistic_rare_summary(fq, chromosome), PARAMETERS["af_rare"], "nipt")
             
         logger.info(f"Completed statistics for sample {sample_name} on chromosome {chromosome}")
     except Exception as e:
