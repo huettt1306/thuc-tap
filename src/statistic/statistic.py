@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 from cyvcf2 import VCF
-from helper.converter import convert_genotype
+from helper.variant import convert_genotype, count_alt_variant, count_same_gt, count_priv_gt, count_priv_true_gt, count_same_true_gt, count_same_false_gt
 from helper.file_utils import save_results_to_csv
 from helper.path_define import ground_truth_vcf, statistic_variants, statistic_summary, glimpse_vcf, basevar_vcf, samid
 from helper.config import PATHS, PARAMETERS
@@ -24,7 +24,7 @@ def process_vcf(vcf_path, method_name):
                 "CHROM": record.CHROM,
                 "POS": record.POS,
                 "REF": record.REF,
-                f"ALT_{method_name}": str(record.ALT[0]) if record.ALT else None,
+                "ALT": str(record.ALT[0]) if record.ALT else None,
                 f"AF_{method_name}": af_value[0] if isinstance(af_value, tuple) else af_value if isinstance(af_value, float) else None,
                 f"GT_{method_name}": convert_genotype(record.genotypes[0]),
                 method_name: True
@@ -53,13 +53,13 @@ def compare_variants(ground_truth_path, basevar_path, glimpse_path, output_file)
         basevar_df = process_vcf(basevar_path, "BaseVar")
         glimpse_df = process_vcf(glimpse_path, "Glimpse")
 
-        merged_df = pd.merge(glimpse_df, basevar_df, on=["CHROM", "POS", "REF"], how="outer")
-        merged_df = pd.merge(ground_truth_df, merged_df, on=["CHROM", "POS", "REF"], how="outer")
+        merged_df = pd.merge(glimpse_df, basevar_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(ground_truth_df, merged_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
 
         merged_df.drop(columns=['AF_BaseVar'], inplace=True)
         merged_df.drop(columns=['AF_Glimpse'], inplace=True)
         merged_df.rename(columns={'AF_Truth': 'AF'}, inplace=True)
-   
+
         merged_df["AF"].fillna(-1.0, inplace=True)
         merged_df.fillna(False, inplace=True)
 
@@ -90,10 +90,10 @@ def compare_nipt_variants(child_path, mother_path, father_path, basevar_path, gl
         basevar_df = process_vcf(basevar_path, "BaseVar")
         glimpse_df = process_vcf(glimpse_path, "Glimpse")
 
-        merged_df = pd.merge(glimpse_df, basevar_df, on=["CHROM", "POS", "REF"], how="outer")
-        merged_df = pd.merge(child_df, merged_df, on=["CHROM", "POS", "REF"], how="outer")
-        merged_df = pd.merge(mother_df, merged_df, on=["CHROM", "POS", "REF"], how="outer")
-        merged_df = pd.merge(father_df, merged_df, on=["CHROM", "POS", "REF"], how="outer")
+        merged_df = pd.merge(glimpse_df, basevar_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(child_df, merged_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(mother_df, merged_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
+        merged_df = pd.merge(father_df, merged_df, on=["CHROM", "POS", "REF", "ALT"], how="outer")
         
         merged_df['AF'] = merged_df['AF_Mother'].combine_first(merged_df['AF_Father'])
         merged_df.drop(columns=['AF_BaseVar'], inplace=True)
@@ -114,62 +114,26 @@ def compare_nipt_variants(child_path, mother_path, father_path, basevar_path, gl
         raise
 
 
-def count_row_variants(row, method, truth):
-    """
-    Đếm số lượng biến thể theo dòng.
-    """
-    variants = 0
-    variants_gt = 0
-
-    if row[f"ALT_{method}"] == row[f"ALT_{truth}"]:
-        variants += 1
-        if row[f"GT_{method}"] == row[f"GT_{truth}"]:
-            variants_gt += 1
-
-    return variants, variants_gt
-
-
-
 def calculate_af_statistics(df, af_percent):
     """
     Tính toán thống kê cho một giá trị AF cho trước và trả về dưới dạng dictionary.
     """
     stats = {
-        "Total Variants": 0,
         "Truth Variants": 0,
         "BaseVar Variants": 0,
-        "BaseVar Variants True": 0,
-        "BaseVar Variants GT True": 0,
+        "BaseVar True Variants": 0,
         "Glimpse Variants": 0,
-        "Glimpse Variants True": 0,
-        "Glimpse Variants GT True": 0,
+        "Glimpse True Variants": 0,
     }
 
     # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
-        af_value = row["AF"] 
-        # Kiểm tra xem AF có nằm trong khoảng từ 0% đến af_percent%
-        if 0 < af_value <= af_percent / 100:
-            stats["Total Variants"] += 1
-
-            if row["BaseVar"]:
-                stats["BaseVar Variants"] += 1
-
-            if row["Glimpse"]:
-                stats["Glimpse Variants"] += 1
-
-            if row["Truth"]:
-                stats["Truth Variants"] += 1
-
-                # Tính toán cho BaseVar
-                var_true, var_gt = count_row_variants(row, "BaseVar", "Truth")
-                stats["BaseVar Variants True"] += var_true
-                stats["BaseVar Variants GT True"] += var_gt
-
-                # Tính toán cho Glimpse
-                var_true, var_gt = count_row_variants(row, "Glimpse", "Truth")
-                stats["Glimpse Variants True"] += var_true
-                stats["Glimpse Variants GT True"] += var_gt
+        af = af_percent / 100
+        stats["Truth Variants"] += count_alt_variant(row, "Truth", af)
+        stats["BaseVar Variants"] += count_alt_variant(row, "BaseVar", af)
+        stats["Glimpse Variants"] += count_alt_variant(row, "Glimpse", af)
+        stats["BaseVar True Variants"] += count_same_gt(row, "BaseVar", "Truth", af)
+        stats["Glimpse True Variants"] += count_same_gt(row, "Glimpse", "Truth", af)
 
     return stats
 
@@ -179,84 +143,47 @@ def calculate_af_nipt_statistics(df, af_percent):
     Tính toán thống kê cho một giá trị AF cho trước.
     """
     stats = {
-        "Total Variants": 0,
         "Child Variants": 0,
         "Mother Variants": 0,
         "Father Variants": 0,
         "BaseVar Variants": 0,
-        "BaseVar Variants Child": 0,
-        "BaseVar Variants Mother": 0,
-        "BaseVar Variants Father": 0,
         "Glimpse Variants": 0,
-        "Glimpse Variants Child": 0,
-        "Glimpse Variants Child GT": 0,
-        "Glimpse Variants Mother": 0,
-        "Glimpse Variants Mother GT": 0,
-        "Glimpse Variants Father": 0,
-        "Glimpse Variants Father GT": 0,
-        "Priv Father Variants": 0,
-        "Priv Glimpse Variants Father": 0,
-        "Priv Mother Variants": 0,
-        "Priv BaseVar Variants Mother": 0,
-        "Priv Glimpse Variants Mother": 0,
-        "Diff Glimpse Variants Parent GT": 0,
-        "Diff Variants Parent GT": 0,
+
+        "Child Variants different from Mother": 0,
+        "Father Variants different from Mother": 0,
+        "Child Variants same as Mother": 0,
+        "Father Variants same as Mother": 0,
+
+        "Glimpse Variants same as Child": 0,
+        "Glimpse Variants same as Mother": 0,
+        "Glimpse Variants same as Child but different from Mother": 0,
+        "Glimpse Variants same as Mother but different from Child": 0,
+        "Glimpse Variants same as Child and Mother": 0,
+        "Glimpse Variants Different from Child and Mother": 0,
     }
 
     # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
-        af_value = row["AF"] 
-        if 0 < af_value <= af_percent / 100:
-            stats["Total Variants"] += 1
-            if row["BaseVar"]:
-                stats["BaseVar Variants"] += 1
+        af = af_percent / 100
+        stats["Child Variants"] += count_alt_variant(row, "Child", af)
+        stats["Mother Variants"] += count_alt_variant(row, "Mother", af)
+        stats["Father Variants"] += count_alt_variant(row, "Father", af)
+        stats["BaseVar Variants"] += count_alt_variant(row, "BaseVar", af)
+        stats["Glimpse Variants"] += count_alt_variant(row, "Glimpse", af)
 
-            if row["Glimpse"]:
-                stats["Glimpse Variants"] += 1
+        stats["Child Variants different from Mother"] += count_priv_gt(row, "Child", "Mother", af)
+        stats["Father Variants different from Mother"] += count_priv_gt(row, "Father", "Mother", af)
+        stats["Child Variants same as Mother"] += count_same_gt(row, "Child", "Mother", af)
+        stats["Father Variants same as Mother"] += count_same_gt(row, "Father", "Mother", af)
 
-            if row["Child"]:
-                stats["Child Variants"] += 1
+        stats["Glimpse Variants same as Child"] += count_same_gt(row, "Glimpse", "Child", af)
+        stats["Glimpse Variants same as Mother"] += count_same_gt(row, "Glimpse", "Mother", af)
 
-                basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Child")
-                stats["BaseVar Variants Child"] += basevar_true
-
-                glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Child")
-                stats["Glimpse Variants Child"] += glimpse_true
-                stats["Glimpse Variants Child GT"] += glimpse_gt
-
-            if row["Mother"]:
-                stats["Mother Variants"] += 1
-
-                basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Mother")
-                stats["BaseVar Variants Mother"] += basevar_true
-
-                glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Mother")
-                stats["Glimpse Variants Mother"] += glimpse_true
-                stats["Glimpse Variants Mother GT"] += glimpse_gt
-
-                if not row["Father"]:
-                    stats["Priv Mother Variants"] += 1
-                    stats["Priv BaseVar Variants Mother"] += basevar_true
-                    stats["Priv Glimpse Variants Mother"] += glimpse_true
-
-                elif row["GT_Father"] != row["GT_Mother"]:
-                    stats["Diff Variants Parent GT"] += 1
-                    stats["Diff Glimpse Variants Parent GT"] += glimpse_gt
-
-            if row["Father"]:
-                stats["Father Variants"] += 1
-
-                basevar_true, basevar_gt = count_row_variants(row, "BaseVar", "Father")
-                stats["BaseVar Variants Father"] += basevar_true
-
-                glimpse_true, glimpse_gt = count_row_variants(row, "Glimpse", "Father")
-                stats["Glimpse Variants Father"] += glimpse_true
-                stats["Glimpse Variants Father GT"] += glimpse_gt
-
-                if not row["Mother"]:
-                    stats["Priv Father Variants"] += 1
-                    stats["Priv Glimpse Variants Father"] += glimpse_true
-
+        stats["Glimpse Variants same as Child but different from Mother"] += count_priv_true_gt(row, "Glimpse", "Child", "Mother", af)
+        stats["Glimpse Variants same as Mother but different from Child"] += count_priv_true_gt(row, "Glimpse", "Mother", "Child", af)
+        stats["Glimpse Variants same as Child and Mother"] += count_same_true_gt(row, "Glimpse", "Child", "Mother", af)
+        stats["Glimpse Variants Different from Child and Mother"] += count_same_false_gt(row, "Glimpse", "Child", "Mother", af)
+        
     return stats
 
 
@@ -270,11 +197,8 @@ def generate_summary_statistics(df, output_file, type="single"):
         # Khởi tạo stats_data
         stats_data = {"AF (%)": []}
 
-        # Danh sách các giá trị AF cần tính
-        af_values = PARAMETERS["af"]
-
         # Duyệt qua các giá trị AF đã định nghĩa
-        for af_percent in af_values:
+        for af_percent in PARAMETERS["af"]:
             logger.info(f"Generating summary statistics for {af_percent}%....")
             if type == "nipt" :
                 stats = calculate_af_nipt_statistics(df, af_percent)
@@ -314,7 +238,6 @@ def statistic(fq, chromosome):
         glimpse_path = glimpse_vcf(fq, chromosome)
 
         if "_" not in sample_name:
-            return
             df = compare_variants(ground_truth_vcf(sample_name, chromosome), basevar_path, glimpse_path, statistic_variants(fq, chromosome))
             generate_summary_statistics(df, statistic_summary(fq, chromosome))
 

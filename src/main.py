@@ -3,6 +3,7 @@ from pipeline.alignment import run_alignment_pipeline
 from pipeline.basevar import run_basevar
 from pipeline.glimpse import run_glimpse
 from statistic.statistic import run_statistic
+
 from pipeline.reference_panel_prepare import prepare_reference_panel
 from helper.config import PARAMETERS, TRIO_DATA, PATHS
 from helper.metrics import calculate_average_coverage
@@ -18,7 +19,6 @@ def pipeline_for_sample(fastq_dir):
     run_basevar(fastq_dir)
     run_glimpse(fastq_dir)
     run_statistic(fastq_dir)
-
 
 def main():
     #prepare_reference_panel()

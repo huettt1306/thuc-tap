@@ -71,14 +71,10 @@ def read_and_process_nipt_samples(chromosome, category):
                     father = trio_info["father"]
 
                     # Đường dẫn đến dữ liệu của con và mẹ
-                    sample = os.path.join(fastq_nipt_path(child, mother, father, coverage, ff, index), f"{child}_{mother}.fastq.gz")
+                    sample = os.path.join(fastq_nipt_path(child, mother, father, coverage, ff, index), f"{child}_{mother}_{father}.fastq.gz")
                     child_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "child"), "summary.csv")
                     mother_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "mother"), "summary.csv")
 
-                    print("-------------------")
-                    print(sample)
-                    print(child_path)
-                    print(mother_path)
 
                     # Đọc dữ liệu con
                     if os.path.exists(child_path):
