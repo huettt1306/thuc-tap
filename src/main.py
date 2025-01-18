@@ -32,7 +32,7 @@ def main():
 
         child_avg_coverage = calculate_average_coverage(child_name)
         mother_avg_coverage = calculate_average_coverage(mother_name)
-        father_avg_coverage = calculate_average_coverage(father_name)
+        #father_avg_coverage = calculate_average_coverage(father_name)
 
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
             logger.info(f"######## PROCESSING index {index} ########")
