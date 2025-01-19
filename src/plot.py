@@ -2,65 +2,57 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from helper.config import PATHS, PARAMETERS, TRIO_DATA
-from helper.path_define import statistic_outdir, statistic_nipt_outdir, fastq_single_path, fastq_nipt_path
+from helper.file_utils import save_results_to_csv
+from helper.path_define import statistic_outdir, fastq_single_path, fastq_nipt_path
 
-def num_variants(df, category, method):
-    return df.loc[(df['Category'] == category) & (df['Method'] == method), f'{method} Variants'].values[0]
-
-def num_variants_true(df, category, method):
-    return df.loc[(df['Category'] == category) & (df['Method'] == method), "True Positives"].values[0]
 
 # Hàm đọc và xử lý dữ liệu
-def read_and_process_single_samples(chromosome, category):
+def read_and_process_single_samples(chromosome, category, outdir):
     """
     Đọc và xử lý tất cả các mẫu từ các thư mục trong root_dir.
     """
-    stats_list = []
+    result = pd.DataFrame()
     for coverage in PARAMETERS["coverage"]:
-
-        basevar_variants = 0
-        glimpse_variants = 0
-        basevar_true = 0
-        glimpse_true = 0
-
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
             for trio_name, trio_info in TRIO_DATA.items():
                 for role, name in trio_info.items():
+                    # Đường dẫn tới tệp tin
                     fq_path = os.path.join(fastq_single_path(name, coverage, index), f"{name}.fastq.gz")
-                    sample_path = os.path.join(statistic_outdir(fq_path, chromosome), "summary.csv")                   
+                    sample_path = os.path.join(statistic_outdir(fq_path, chromosome), f"{category}.csv")
+                    
+                    # Kiểm tra sự tồn tại của file
                     if not os.path.exists(sample_path):
                         continue
 
+                    # Đọc file CSV
                     df = pd.read_csv(sample_path)
-                    
-                    basevar_variants += num_variants(df, category, "BaseVar")
-                    glimpse_variants += num_variants(df, category, "Glimpse")
-                    basevar_true += num_variants_true(df, category, "BaseVar")
-                    glimpse_true += num_variants_true(df, category, "Glimpse")
 
-        basevar_ratio = basevar_true / basevar_variants
-        glimpse_ratio = glimpse_true / glimpse_variants
+                    # Đảm bảo các cột số được xử lý đúng kiểu
+                    numeric_cols = df.columns.difference(['AF (%)'])  # Loại trừ cột 'AF (%)'
+                    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
+
+                    # Nếu `result` trống, khởi tạo bằng `df`
+                    if result.empty:
+                        result = df
+                    else:
+                        # Cộng dồn dữ liệu
+                        result = result.set_index('AF (%)').add(df.set_index('AF (%)'), fill_value=0).reset_index()
+
+    result["Glimpse Accuracy"] = df["Glimpse True Variants"] / df["Glimpse Variants"]
+    save_results_to_csv(os.path.join(outdir, f"{category}.csv"), result)
+    plot_af_with_accuracy(result, os.path.join(outdir, f"{category}"))
+
+    return result
 
 
-        stats_list.append({
-            "Coverage": coverage,
-            "BaseVar_Ratio": basevar_ratio,
-            "Glimpse_Ratio": glimpse_ratio,
-        })
-    
-    return pd.DataFrame(stats_list)
-
-def read_and_process_nipt_samples(chromosome, category):
+def read_and_process_nipt_samples(chromosome, category, outdir):
     """
     Đọc và xử lý tất cả các mẫu NIPT từ các thư mục trong root_dir.
     """
-    stats_list = []
+    total = pd.DataFrame()  # DataFrame tổng
+
     for ff in PARAMETERS["ff"]:
-        # Khởi tạo các biến để lưu số liệu
-        basevar_variants = {"child": 0, "mother": 0}
-        glimpse_variants = {"child": 0, "mother": 0}
-        basevar_true = {"child": 0, "mother": 0}
-        glimpse_true = {"child": 0, "mother": 0}
+        result = pd.DataFrame()  # DataFrame cho từng giá trị ff
 
         for coverage in PARAMETERS["coverage"]:
             for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
@@ -70,108 +62,148 @@ def read_and_process_nipt_samples(chromosome, category):
                     mother = trio_info["mother"]
                     father = trio_info["father"]
 
-                    # Đường dẫn đến dữ liệu của con và mẹ
-                    sample = os.path.join(fastq_nipt_path(child, mother, father, coverage, ff, index), f"{child}_{mother}_{father}.fastq.gz")
-                    child_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "child"), "summary.csv")
-                    mother_path = os.path.join(statistic_nipt_outdir(sample, chromosome, "mother"), "summary.csv")
+                    fq_path = os.path.join(
+                        fastq_nipt_path(child, mother, father, coverage, ff, index),
+                        f"{child}_{mother}_{father}.fastq.gz"
+                    )
+                    sample_path = os.path.join(
+                        statistic_outdir(fq_path, chromosome), 
+                        f"{category}.csv"
+                    )
+                    
+                    if not os.path.exists(sample_path):
+                        continue
+
+                    # Đọc file CSV
+                    df = pd.read_csv(sample_path)
+
+                    # Đảm bảo các cột số được xử lý đúng kiểu
+                    numeric_cols = df.columns.difference(['AF (%)'])  # Loại trừ cột 'AF (%)'
+                    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
+
+                    # Nếu `result` trống, khởi tạo bằng `df`
+                    if result.empty:
+                        result = df
+                    else:
+                        # Cộng dồn dữ liệu
+                        result = result.set_index('AF (%)').add(df.set_index('AF (%)'), fill_value=0).reset_index()
 
 
-                    # Đọc dữ liệu con
-                    if os.path.exists(child_path):
-                        child_df = pd.read_csv(child_path)
-                        basevar_variants["child"] += num_variants(child_df, category, "BaseVar")
-                        glimpse_variants["child"] += num_variants(child_df, category, "Glimpse")
-                        basevar_true["child"] += num_variants_true(child_df, category, "BaseVar")
-                        glimpse_true["child"] += num_variants_true(child_df, category, "Glimpse")
+        # Thêm cột `ff` vào `result`
+        result["ff"] = ff
+        result["Child Accuracy"] = df["Glimpse Variants same as Child"] / df["Glimpse Variants"]
+        result["Mother Accuracy"] = df["Glimpse Variants same as Mother"] / df["Glimpse Variants"]
+        plot_nipt_af_with_accuracy(result, os.path.join(outdir, f"{category}_{ff}.png"))
 
-                    # Đọc dữ liệu mẹ
-                    if os.path.exists(mother_path):
-                        mother_df = pd.read_csv(mother_path)
-                        basevar_variants["mother"] += num_variants(mother_df, category, "BaseVar")
-                        glimpse_variants["mother"] += num_variants(mother_df, category, "Glimpse")
-                        basevar_true["mother"] += num_variants_true(mother_df, category, "BaseVar")
-                        glimpse_true["mother"] += num_variants_true(mother_df, category, "Glimpse")
+        # Kết hợp `result` vào `total`
+        total = pd.concat([total, result], ignore_index=True)
 
-        # Tính tỷ lệ
-        basevar_ratio_child = basevar_true["child"] / basevar_variants["child"] if basevar_variants["child"] > 0 else 0
-        glimpse_ratio_child = glimpse_true["child"] / glimpse_variants["child"] if glimpse_variants["child"] > 0 else 0
-        basevar_ratio_mother = basevar_true["mother"] / basevar_variants["mother"] if basevar_variants["mother"] > 0 else 0
-        glimpse_ratio_mother = glimpse_true["mother"] / glimpse_variants["mother"] if glimpse_variants["mother"] > 0 else 0
+    save_results_to_csv(os.path.join(outdir, f"{category}.csv"), total)
+    return total
 
-        print(basevar_variants["child"])
-        print(basevar_variants["mother"])
-
-        # Thêm vào danh sách kết quả
-        stats_list.append({
-            "FF": ff,
-            "Coverage": coverage,
-            "Child_BaseVar_Ratio": basevar_ratio_child,
-            "Child_Glimpse_Ratio": glimpse_ratio_child,
-            "Mother_BaseVar_Ratio": basevar_ratio_mother,
-            "Mother_Glimpse_Ratio": glimpse_ratio_mother,
-        })
-
-    return pd.DataFrame(stats_list)
-
-
-
-# Hàm vẽ biểu đồ
-def plot_data(df, category, output_dir):
+def plot_nipt_af_with_accuracy(df, outdir):
     """
-    Vẽ biểu đồ tương quan giữa coverage và ratio.
+    Vẽ hai biểu đồ (biến thể và độ chính xác) trong cùng một file ảnh.
+    
+    Parameters:
+        df (DataFrame): Dữ liệu từ file CSV.
+        outdir (str): Đường dẫn file để lưu biểu đồ.
     """
-    output_file = os.path.join(output_dir, f"{category}_Coverage_vs_Ratio.png")
-    plt.figure(figsize=(12, 6))
 
-    # Biểu đồ cho Total
-    plt.subplot(1, 2, 1)
-    plt.plot(df['Coverage'], df['BaseVar_Ratio'], label=f"{category} BaseVar", marker='o', color='blue')
-    plt.plot(df['Coverage'], df['Glimpse_Ratio'], label=f"{category} Glimpse", marker='o', color='red')
-    plt.title(f"{category} Coverage vs Ratio")
-    plt.xlabel("Coverage")
-    plt.ylabel("Ratio")
-    plt.legend()
-    plt.grid()
+    # Cột `AF (%)` sẽ là trục X
+    x = df["AF (%)"]
 
+    # Các cột cần plot cho biểu đồ biến thể
+    columns_to_plot = [
+        "Child Variants",
+        "Mother Variants",
+        "Glimpse Variants",
+        "Glimpse Variants same as Child",
+        "Glimpse Variants same as Mother",
+    ]
+
+    # Tạo figure và chia thành 2 subplot
+    plt.figure(figsize=(20, 12))
+
+    # **Biểu đồ 1: Biến thể**
+    plt.subplot(2, 1, 1)  # Hàng 1, cột 1 (trên cùng)
+    for column in columns_to_plot:
+        plt.plot(x, df[column], label=column)
+
+    plt.title("Biểu đồ Biến thể theo AF (%)", fontsize=14)
+    plt.xlabel("AF (%)", fontsize=12)
+    plt.ylabel("Giá trị", fontsize=12)
+    plt.legend(title="Các cột", fontsize=10)
+    plt.grid(True)
+
+    # **Biểu đồ 2: Độ chính xác**
+    plt.subplot(2, 1, 2)  # Hàng 2, cột 1 (dưới cùng)
+    plt.plot(x, df["Child Accuracy"], '--', label="Child Accuracy", color="blue")  # Đường nét đứt màu xanh
+    plt.plot(x, df["Mother Accuracy"], '--', label="Mother Accuracy", color="green")  # Đường nét đứt màu xanh lá
+
+    plt.title("Biểu đồ Độ chính xác theo AF (%)", fontsize=14)
+    plt.xlabel("AF (%)", fontsize=12)
+    plt.ylabel("Độ chính xác", fontsize=12)
+    plt.legend(title="Độ chính xác", fontsize=10)
+    plt.grid(True)
+
+    # Lưu biểu đồ vào file
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300)
+    plt.savefig(outdir, dpi=300)
     plt.close()
 
-    print(f"Biểu đồ đã được lưu tại: {output_file}")
+    print(f"Biểu đồ đã được lưu tại: {outdir}")
 
 
-def plot_data_by_ff(df, category, output_dir):
+def plot_af_with_accuracy(df, outdir):
     """
-    Vẽ biểu đồ tương quan giữa ff và ratio cho các giá trị tính được.
+    Vẽ hai biểu đồ (biến thể và độ chính xác) trong cùng một file ảnh.
+    
+    Parameters:
+        df (DataFrame): Dữ liệu từ file CSV.
+        outdir (str): Đường dẫn file để lưu biểu đồ.
     """
-    output_file = os.path.join(output_dir, f"{category}_FF_vs_Ratio.png")
-    plt.figure(figsize=(12, 6))
 
-    # Biểu đồ cho Child
-    plt.subplot(1, 2, 1)
-    plt.plot(df['FF'], df['Child_BaseVar_Ratio'], label=f"Child BaseVar", marker='o', color='blue')
-    plt.plot(df['FF'], df['Child_Glimpse_Ratio'], label=f"Child Glimpse", marker='o', color='green')
-    plt.title(f"{category} FF vs Ratio (Child)")
-    plt.xlabel("FF")
-    plt.ylabel("Ratio")
-    plt.legend()
-    plt.grid()
+    # Cột `AF (%)` sẽ là trục X
+    x = df["AF (%)"]
 
-    # Biểu đồ cho Mother
-    plt.subplot(1, 2, 2)
-    plt.plot(df['FF'], df['Mother_BaseVar_Ratio'], label=f"Mother BaseVar", marker='o', color='red')
-    plt.plot(df['FF'], df['Mother_Glimpse_Ratio'], label=f"Mother Glimpse", marker='o', color='purple')
-    plt.title(f"{category} FF vs Ratio (Mother)")
-    plt.xlabel("FF")
-    plt.ylabel("Ratio")
-    plt.legend()
-    plt.grid()
+    # Các cột cần plot cho biểu đồ biến thể
+    columns_to_plot = [
+        "Truth Variants",
+        "Glimpse Variants",
+        "Glimpse True Variants",
+    ]
 
+    # Tạo figure và chia thành 2 subplot
+    plt.figure(figsize=(20, 12))
+
+    # **Biểu đồ 1: Biến thể**
+    plt.subplot(2, 1, 1)  # Hàng 1, cột 1 (trên cùng)
+    for column in columns_to_plot:
+        plt.plot(x, df[column], label=column)
+
+    plt.title("Biểu đồ Biến thể theo AF (%)", fontsize=14)
+    plt.xlabel("AF (%)", fontsize=12)
+    plt.ylabel("Giá trị", fontsize=12)
+    plt.legend(title="Các cột", fontsize=10)
+    plt.grid(True)
+
+    # **Biểu đồ 2: Độ chính xác**
+    plt.subplot(2, 1, 2)  # Hàng 2, cột 1 (dưới cùng)
+    plt.plot(x, df["Glimpse Accuracy"], '--', label="Glimpse Accuracy", color="orange")  # Đường nét đứt
+
+    plt.title("Biểu đồ Độ chính xác Glimpse theo AF (%)", fontsize=14)
+    plt.xlabel("AF (%)", fontsize=12)
+    plt.ylabel("Độ chính xác", fontsize=12)
+    plt.legend(title="Độ chính xác", fontsize=10)
+    plt.grid(True)
+
+    # Lưu biểu đồ vào file
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300)
+    plt.savefig(outdir, dpi=300)
     plt.close()
 
-    print(f"Biểu đồ đã được lưu tại: {output_file}")
+    print(f"Biểu đồ đã được lưu tại: {outdir}")
 
 
 if __name__ == "__main__":
@@ -182,11 +214,11 @@ if __name__ == "__main__":
         os.makedirs(output_dir, exist_ok=True)
 
         # Vẽ biểu đồ
-        plot_data(read_and_process_single_samples(chromosome, "Total"), "Total", output_dir)
-        plot_data(read_and_process_single_samples(chromosome, "Rare"), "Rare", output_dir)
+        read_and_process_single_samples(chromosome, "summary", output_dir)
+        read_and_process_single_samples(chromosome, "rare_summary", output_dir)
 
         print(f"Plots saved to {output_dir}")
 
-        plot_data_by_ff(read_and_process_nipt_samples(chromosome, "Total"), "Total", output_dir)
-        plot_data_by_ff(read_and_process_nipt_samples(chromosome, "Rare"), "Rare", output_dir)
+        read_and_process_nipt_samples(chromosome, "summary", output_dir)
+        read_and_process_nipt_samples(chromosome, "rare_summary", output_dir)
 
