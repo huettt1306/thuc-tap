@@ -98,7 +98,7 @@ def read_and_process_nipt_samples(chromosome, category, outdir):
         # Kết hợp `result` vào `total`
         total = pd.concat([total, result], ignore_index=True)
 
-    save_results_to_csv(os.path.join(outdir, f"{category}.csv"), total)
+    save_results_to_csv(os.path.join(outdir, f"{category}_nipt.csv"), total)
     return total
 
 def plot_nipt_af_with_accuracy(df, outdir):

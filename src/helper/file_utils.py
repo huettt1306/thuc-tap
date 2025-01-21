@@ -1,9 +1,12 @@
 import gzip
 import subprocess
 import os
+import pandas as pd
+from cyvcf2 import VCF
 from helper.config import PATHS, TOOLS, PARAMETERS
 from helper.logger import setup_logger
 from helper.converter import convert_cram_to_fastq
+from helper.variant import convert_genotype
 
 logger = setup_logger(os.path.join(PATHS["logs"], "file_utils.log"))
 
@@ -106,3 +109,28 @@ def extract_vcf(sample_name, vcf_reference, output_vcf_path):
         logger.error(f"Error extracting VCF: {e}")
         raise
 
+def process_vcf(vcf_path, method_name):
+    """
+    Đọc VCF và trích xuất thông tin cần thiết.
+    """
+    variants = []
+    try:
+        logger.info(f"Processing VCF file: {vcf_path} for method {method_name}")
+        vcf_reader = VCF(vcf_path)
+        for record in vcf_reader:
+            af_value = dict(record.INFO).get('AF', None)
+            variants.append({
+                "CHROM": record.CHROM,
+                "POS": record.POS,
+                "REF": record.REF,
+                "ALT": str(record.ALT[0]) if record.ALT else None,
+                f"AF_{method_name}": af_value[0] if isinstance(af_value, tuple) else af_value if isinstance(af_value, float) else None,
+                f"GT_{method_name}": convert_genotype(record.genotypes[0]),
+                method_name: True
+            })
+    except Exception as e:
+        logger.error(f"Error processing VCF file {vcf_path}: {e}")
+        raise
+
+    logger.info(f"Finished processing VCF file: {vcf_path}")
+    return pd.DataFrame(variants)

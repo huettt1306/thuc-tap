@@ -1,8 +1,0 @@
-{
-    "bam": {
-        "HG02024": "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase3/data/HG02024/alignment/HG02024.unmapped.ILLUMINA.bwa.KHV.low_coverage.20130415.bam"
-    },
-    "cram": {
-        "HG02027": "ftp://ftp.sra.ebi.ac.uk/vol1/run/ERR398/ERR3988977/HG02027.final.cram"
-    }
-} 

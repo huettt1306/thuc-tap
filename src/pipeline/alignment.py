@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shutil
 from helper.config import TOOLS, PATHS, PARAMETERS
 from helper.path_define import samid, tmp_outdir, batch1_final_outdir, bamlist_dir
 from helper.logger import setup_logger
@@ -320,6 +321,11 @@ def run_bedtools(fq, sample_id, outdir, final_outdir, bedtools=TOOLS["bedtools"]
                 if file_suffix == ".bam":
                     with open(bam_list_file, "a") as bam_list:
                         bam_list.write(f"{dst_file}\n")
+
+        # Step 4: Remove the temporary output directory
+        logger.info("Removing temporary output directory...")
+        shutil.rmtree(outdir)
+        logger.info(f"Temporary directory {outdir} deleted.")
 
     except subprocess.CalledProcessError as e:
         logger.error(f"[WORKFLOW_ERROR_INFO] Command failed: {e.cmd}\nError: {e}")

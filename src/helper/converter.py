@@ -50,6 +50,8 @@ def convert_cram_to_fastq(cram_path, output_fastq_path):
             raise RuntimeError(error_message)
         else:
             logger.info(f"FASTQ file created successfully at {output_fastq_path}.")
+            os.remove(cram_path)
+            logger.info(f"Original CRAM file {cram_path} deleted.")
     except Exception as e:
         logger.error(f"Failed to convert CRAM to FASTQ: {e}")
 
