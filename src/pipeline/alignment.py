@@ -7,7 +7,6 @@ from helper.logger import setup_logger
 
 # Cấu hình từ JSON
 REF = PATHS["ref"]
-REF_INDEX_PREFIX = PATHS["ref_index_prefix"]
 GATK_BUNDLE_DIR = PATHS["gatk_bundle_dir"]
 
 logger = setup_logger(os.path.join(PATHS["logs"], "alignment_pipeline.log"))
@@ -32,6 +31,7 @@ def run_bwa_alignment(sample_id, fq, outdir, ref_index_prefix=REF, bwa=TOOLS["bw
             bwa, "aln", "-e", "10", "-t", f"{PARAMETERS['threads']}", "-i", "5", "-q", "0",
             ref_index_prefix, fq
         ]
+        print("BWA ALN COMMAND:", " ".join(bwa_aln_cmd))
         with open(sai_file, "w") as sai_out:
             subprocess.run(bwa_aln_cmd, stdout=sai_out, check=True)
 

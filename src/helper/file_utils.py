@@ -5,76 +5,39 @@ import pandas as pd
 from cyvcf2 import VCF
 from helper.config import PATHS, TOOLS, PARAMETERS
 from helper.logger import setup_logger
-from helper.converter import convert_cram_to_fastq
 from helper.variant import convert_genotype
 
 logger = setup_logger(os.path.join(PATHS["logs"], "file_utils.log"))
 
-
-def download_file(url, output_path):
+def extract_land1_fq(fq_path, r1_path):
     """
-    Hàm tải file từ URL.
+    Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
     """
-    logger.info(f"Downloading file from {url} to {output_path} ")
-    command = ["wget", "-O", output_path, url]
+    logger.info(f"Extracting land 1 for {fq_path}...")
+    if os.path.exists(r1_path):
+        logger.info("Land 1 fastq already exists.")
+        return
+    if not os.path.exists(fq_path):
+        logger.error(f"Sample {fq_path} cannot read.")
+        raise RuntimeError(f"Failed to read sample: {fq_path}")
+    
+    cmd = f"{TOOLS['seqtk']} seq -1 {fq_path} | gzip > {r1_path}"
+    subprocess.run(cmd, shell=True, check=True)
+    logger.info(f"Extracted land 1 for {fq_path}")
 
-    try:
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.error(f"Failed to download file: {result.stderr}")
-            raise RuntimeError(f"Failed to download file: {result.stderr}")
-        logger.info(f"File downloaded successfully to {output_path}.")
-    except Exception as e:
-        logger.error(f"Error during file download: {e}")
-        raise
 
-def read_fastq_file(name):
+def filter_with_seqtk(input_file, output_file, fraction):
     """
-    Đọc file FASTQ theo tên mẫu.
-    Lấy đường dẫn từ config PATHS và tên mẫu.
+    Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
     """
-    fastq_path = os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
+    logger.info(f"Filtering with seqtk sample {input_file} with fraction {fraction}....")
+    if not os.path.exists(input_file):
+        logger.error(f"Sample {input_file} cannot read.")
+        raise RuntimeError(f"Failed to read sample: {input_file}")
 
-    logger.info(f"Đọc dữ liệu từ {fastq_path}")
-
-    if not os.path.exists(fastq_path):
-        cram_path = os.path.join(PATHS["cram_directory"], f"{name}.final.cram")
-        convert_cram_to_fastq(cram_path, fastq_path) 
-        if not os.path.exists(fastq_path):
-            logger.error(f"Sample {name} cannot read.")
-            raise RuntimeError(f"Failed to read sample: {name}")
-
-
-    headers, reads, plus_separators, qualities = [], [], [], []
-    with gzip.open(fastq_path, 'rt') as f:
-        while True:
-            header = f.readline().strip()
-            sequence = f.readline().strip()
-            plus_separator = f.readline().strip()
-            quality = f.readline().strip()
-
-            # Kiểm tra số dòng đọc được có hợp lệ không (4 dòng cho mỗi read)
-            if not header or not sequence or not plus_separator or not quality:
-                logger.error(f"File {fastq_path} không hợp lệ: thiếu dữ liệu cho một hoặc nhiều reads.")
-                break
-
-            headers.append(header)
-            reads.append(sequence)
-            plus_separators.append(plus_separator)
-            qualities.append(quality)
-
-    logger.info(f"Đã đọc dữ liệu FASTQ của mẫu {name} từ {fastq_path}")
-    return reads, qualities, headers, plus_separators
-
-
-def save_to_fastq(output_file, selected_reads, selected_qualities, selected_headers, selected_plus_separators):
-    """
-    Hàm lưu reads và chất lượng vào file FASTQ.GZ.
-    """
-    with gzip.open(output_file, 'wt') as f:
-        for header, read, plus, quality in zip(selected_headers, selected_reads, selected_plus_separators, selected_qualities):
-            f.write(f'{header}\n{read}\n{plus}\n{quality}\n')
-    logger.info(f"Đã lưu kết quả vào {output_file}")
+    cmd = f"{TOOLS['seqtk']} sample {input_file} {fraction} | gzip > {output_file}"
+    subprocess.run(cmd, shell=True, check=True)
+    logger.info(f"Filter {input_file} done.")
     return output_file
 
 

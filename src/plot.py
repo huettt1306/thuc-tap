@@ -11,8 +11,9 @@ def read_and_process_single_samples(chromosome, category, outdir):
     """
     Đọc và xử lý tất cả các mẫu từ các thư mục trong root_dir.
     """
-    result = pd.DataFrame()
+
     for coverage in PARAMETERS["coverage"]:
+        result = pd.DataFrame()
         for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
             for trio_name, trio_info in TRIO_DATA.items():
                 for role, name in trio_info.items():
@@ -27,6 +28,9 @@ def read_and_process_single_samples(chromosome, category, outdir):
                     # Đọc file CSV
                     df = pd.read_csv(sample_path)
 
+                    df["AF (%)"] = df["AF (%)"].str.replace("%", "").astype(float)
+                    df = df[(df["AF (%)"] > 0) & (df["AF (%)"] < 50)]
+
                     # Đảm bảo các cột số được xử lý đúng kiểu
                     numeric_cols = df.columns.difference(['AF (%)'])  # Loại trừ cột 'AF (%)'
                     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -38,12 +42,9 @@ def read_and_process_single_samples(chromosome, category, outdir):
                         # Cộng dồn dữ liệu
                         result = result.set_index('AF (%)').add(df.set_index('AF (%)'), fill_value=0).reset_index()
 
-    result["Glimpse Accuracy"] = df["Glimpse True Variants"] / df["Glimpse Variants"]
-    save_results_to_csv(os.path.join(outdir, f"{category}.csv"), result)
-    plot_af_with_accuracy(result, os.path.join(outdir, f"{category}"))
-
-    return result
-
+        result["Glimpse Accuracy"] = df["Glimpse True Variants"] / df["Glimpse Variants"]
+        save_results_to_csv(os.path.join(outdir, f"{category}_{coverage}_cov.csv"), result)
+        plot_af_with_accuracy(result, os.path.join(outdir, f"{category}_{coverage}_cov.png"))
 
 def read_and_process_nipt_samples(chromosome, category, outdir):
     """
@@ -76,6 +77,9 @@ def read_and_process_nipt_samples(chromosome, category, outdir):
 
                     # Đọc file CSV
                     df = pd.read_csv(sample_path)
+
+                    df["AF (%)"] = df["AF (%)"].str.replace("%", "").astype(float)
+                    df = df[(df["AF (%)"] > 0) & (df["AF (%)"] < 50)]
 
                     # Đảm bảo các cột số được xử lý đúng kiểu
                     numeric_cols = df.columns.difference(['AF (%)'])  # Loại trừ cột 'AF (%)'
@@ -215,10 +219,81 @@ if __name__ == "__main__":
 
         # Vẽ biểu đồ
         read_and_process_single_samples(chromosome, "summary", output_dir)
-        read_and_process_single_samples(chromosome, "rare_summary", output_dir)
 
         print(f"Plots saved to {output_dir}")
 
         read_and_process_nipt_samples(chromosome, "summary", output_dir)
-        read_and_process_nipt_samples(chromosome, "rare_summary", output_dir)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

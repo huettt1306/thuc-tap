@@ -6,9 +6,13 @@ from statistic.statistic import run_statistic
 
 from pipeline.reference_panel_prepare import prepare_reference_panel
 from helper.config import PARAMETERS, TRIO_DATA, PATHS
-from helper.metrics import calculate_average_coverage
+from helper.metrics import get_fastq_coverage
 from helper.logger import setup_logger
+from helper.file_utils import extract_land1_fq
+from helper.path_define import fastq_path, fastq_path_land1
 import os, sys
+from concurrent.futures import ThreadPoolExecutor
+
 
 logger = setup_logger(os.path.join(PATHS["logs"], "main.log"))
 
@@ -31,8 +35,23 @@ def process_trio(trio_name, trio_info):
     mother_name = trio_info["mother"]
     father_name = trio_info["father"]
 
-    child_avg_coverage = calculate_average_coverage(child_name)
-    mother_avg_coverage = calculate_average_coverage(mother_name)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # Submit các tác vụ lọc cho con và mẹ
+        future_child = executor.submit(extract_land1_fq, fastq_path(child_name), fastq_path_land1(child_name))
+        future_mother = executor.submit(extract_land1_fq, fastq_path(mother_name), fastq_path_land1(mother_name))
+
+        # Đợi các tác vụ hoàn thành
+        future_child.result()
+        future_mother.result()
+
+        # Sau khi lọc xong, tính coverage song song
+        future_child_cov = executor.submit(get_fastq_coverage, child_name)
+        future_mother_cov = executor.submit(get_fastq_coverage, mother_name)
+
+        # Lấy kết quả coverage
+        child_avg_coverage = future_child_cov.result()
+        mother_avg_coverage = future_mother_cov.result()
+
 
     for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
         logger.info(f"######## PROCESSING index {index} ########")
@@ -64,3 +83,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Bao nhiêu snp trên con/mẹ không được call ra (không call ra / tinh sai)

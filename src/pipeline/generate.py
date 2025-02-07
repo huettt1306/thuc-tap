@@ -1,32 +1,14 @@
 import os, subprocess
 from helper.config import PATHS, TOOLS
-from helper.path_define import fastq_path, fastq_single_path, fastq_nipt_path, cram_path
+from helper.path_define import fastq_path_land1, fastq_single_path, fastq_nipt_path, cram_path
 from helper.logger import setup_logger
-from helper.converter import convert_cram_to_fastq
+from helper.file_utils import filter_with_seqtk
 from concurrent.futures import ThreadPoolExecutor
 
 logger = setup_logger(os.path.join(PATHS["logs"], "generate.log"))
 
-generated_files = []
-
-def filter_with_seqtk(name, output_file, fraction):
-    """
-    Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
-    """
-    logger.info(f"Filtering with seqtk sample {name} with fraction {fraction}....")
-    input_file = fastq_path(name)
-    if not os.path.exists(input_file):
-        convert_cram_to_fastq(cram_path(name), input_file) 
-        if not os.path.exists(input_file):
-            logger.error(f"Sample {name} cannot read.")
-            raise RuntimeError(f"Failed to read sample: {name}")
-
-    cmd = f"{TOOLS['seqtk']} sample {input_file} {fraction} | gzip > {output_file}"
-    subprocess.run(cmd, shell=True, check=True)
-    logger.info(f"Filter {name} done.")
-    return output_file
-
 def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
+    input_file = fastq_path_land1(name)
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
         logger.info(f"File {output_file} already exists. Skipping creation.")
@@ -38,7 +20,7 @@ def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
     ratio = coverage / avg_coverage
 
     # Lọc với seqtk
-    return filter_with_seqtk(name, output_file, ratio)
+    return filter_with_seqtk(input_file, output_file, ratio)
 
 
 def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, mother_avg_coverage, ff, output_prefix):
@@ -59,8 +41,8 @@ def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, 
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         # Submit các tác vụ lọc cho con và mẹ
-        future_child = executor.submit(filter_with_seqtk, child_name, child_output, child_ratio)
-        future_mother = executor.submit(filter_with_seqtk, mother_name, mother_output, mother_ratio)
+        future_child = executor.submit(filter_with_seqtk, fastq_path_land1(child_name), child_output, child_ratio)
+        future_mother = executor.submit(filter_with_seqtk, fastq_path_land1(mother_name), mother_output, mother_ratio)
 
         # Đợi các tác vụ hoàn thành
         future_child.result()

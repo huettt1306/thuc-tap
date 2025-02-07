@@ -158,7 +158,7 @@ def chunk_reference_genome(chromosome):
     return chunks_output
 
 def prepare_gatk_bundle():
-    dbsnp = os.path.join(PATHS["gatk_bundle_dir"], "Homo_sapiens_assembly38.dbsnp138.vcf.gz"),
+    dbsnp = os.path.join(PATHS["gatk_bundle_dir"], "Homo_sapiens_assembly38.dbsnp138.vcf.gz")
 
     if not os.path.exists(dbsnp):
         print(f"{dbsnp} not found. Compressing {dbsnp}...")

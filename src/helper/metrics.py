@@ -1,17 +1,17 @@
 import pysam, os
 import subprocess
-from helper.path_define import cram_path
+from helper.path_define import fastq_path_land1
 from helper.config import TOOLS, PATHS
 from helper.logger import setup_logger
 
 
-COVERAGE_FILE = os.path.join(PATHS["cram_directory"], "coverage.txt")
+COVERAGE_FILE = os.path.join(PATHS["fastq_directory"], "coverage.txt")
 logger = setup_logger(os.path.join(PATHS["logs"], "metrics.log"))
 
-def calculate_average_coverage(name):
-    # Đường dẫn đến file CRAM
-    cram_file = cram_path(name)
-
+def get_fastq_coverage(name):
+    """
+    Tính coverage của file FASTQ
+    """
     # Kiểm tra nếu kết quả đã tồn tại trong coverage.txt
     if os.path.exists(COVERAGE_FILE):
         with open(COVERAGE_FILE, 'r') as f:
@@ -21,34 +21,34 @@ def calculate_average_coverage(name):
                     # Nếu đã có kết quả, trả về ngay mà không tính lại
                     return float(coverage)
 
-    # Tính toán độ bao phủ bằng lệnh samtools và awk
-    try:
-        cmd = f"{TOOLS['samtools']} depth {cram_file} | awk '{{total+=$3; count++}} END {{print total/count}}'"
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            text=True
-        )
-        
-        # Chuyển kết quả sang số thực
-        average_coverage = float(result.stdout.strip())
 
-        # Ghi kết quả vào file coverage.txt
-        with open(COVERAGE_FILE, 'a') as f:
-            f.write(f"{name}\t{average_coverage}\n")
+    # Chạy `seqkit stats` để lấy tổng số base (sum_len)
+    input_fastq = fastq_path_land1(name)
+    result = subprocess.run(
+        f"{TOOLS['seqkit']} stats {input_fastq} | tail -n 1",
+        shell=True,
+        capture_output=True,
+        text=True
+    )
 
-        return average_coverage
+    # Phân tích kết quả đầu ra từ `seqkit stats`
+    stats_values = result.stdout.split()
+    
+    # Kiểm tra xem `seqkit` có chạy thành công không
+    if len(stats_values) < 5:
+        raise ValueError("Không thể lấy thống kê từ seqkit. Hãy kiểm tra file FASTQ.")
 
-    except subprocess.CalledProcessError as e:
-        logger.info(f"Error while running samtools or awk: {e.stderr}")
-        return None
-    except Exception as e:
-        logger.info(f"An error occurred: {e}")
-        return None
+    # Lấy tổng số nucleotide (sum_len) từ cột 5
+    total_bases = int(stats_values[4].replace(",", ""))  
 
+    # Tính coverage
+    genome_size = 3200000000
+    coverage = total_bases / genome_size
+
+    with open(COVERAGE_FILE, 'a') as f:
+        f.write(f"{name}\t{coverage}\n")
+
+    return coverage
 
 
 def evaluate_vcf(ground_truth_file, test_file):
