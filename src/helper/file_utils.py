@@ -1,15 +1,15 @@
-import gzip
+import random
 import subprocess
 import os
 import pandas as pd
 from cyvcf2 import VCF
 from helper.config import PATHS, TOOLS, PARAMETERS
 from helper.logger import setup_logger
-from helper.variant import convert_genotype
+from helper.converter import convert_genotype
 
 logger = setup_logger(os.path.join(PATHS["logs"], "file_utils.log"))
 
-def extract_land1_fq(fq_path, r1_path):
+def extract_lane1_fq(fq_path, r1_path):
     """
     Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
     """
@@ -21,7 +21,7 @@ def extract_land1_fq(fq_path, r1_path):
         logger.error(f"Sample {fq_path} cannot read.")
         raise RuntimeError(f"Failed to read sample: {fq_path}")
     
-    cmd = f"{TOOLS['seqtk']} seq -1 {fq_path} | gzip > {r1_path}"
+    cmd = f'{TOOLS["seqkit"]} grep -rp ":1:" {fq_path} -o {r1_path}'
     subprocess.run(cmd, shell=True, check=True)
     logger.info(f"Extracted land 1 for {fq_path}")
 
@@ -31,11 +31,14 @@ def filter_with_seqtk(input_file, output_file, fraction):
     Sử dụng seqtk để lấy mẫu dữ liệu từ file FASTQ theo tỷ lệ nhất định.
     """
     logger.info(f"Filtering with seqtk sample {input_file} with fraction {fraction}....")
+    print(f"Filtering with seqtk sample {input_file} with fraction {fraction}....")
     if not os.path.exists(input_file):
-        logger.error(f"Sample {input_file} cannot read.")
+        logger.error(f"Sample {input_file} cannot be read.")
         raise RuntimeError(f"Failed to read sample: {input_file}")
 
-    cmd = f"{TOOLS['seqtk']} sample {input_file} {fraction} | gzip > {output_file}"
+    seed = seed = random.randint(1, 10**9 + 7)
+
+    cmd = f"{TOOLS['seqtk']} sample -s {seed} {input_file} {fraction} | gzip > {output_file}"
     subprocess.run(cmd, shell=True, check=True)
     logger.info(f"Filter {input_file} done.")
     return output_file

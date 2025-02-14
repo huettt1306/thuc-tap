@@ -3,6 +3,7 @@ import os
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import basevar_outdir, bamlist_dir, vcf_list_path, basevar_vcf
 from helper.logger import setup_logger
+from concurrent.futures import ThreadPoolExecutor
 
 # Thiết lập logger
 logger = setup_logger(os.path.join(PATHS["logs"], "basevar_pipeline.log"))
@@ -27,36 +28,45 @@ def load_reference_fai(in_fai, chroms=None):
     return ref
 
 
+def run_basevar_region(fq, chromosome, chr_id, start, end, bamlist_path, outdir):
+    region = f"{chr_id}:{start}-{end}"
+    outfile_prefix = f"{chr_id}_{start}_{end}"
+    logger.info(f"Starting BaseVar for region {region}")
+
+    command = [
+        TOOLS['basevar'], "basetype",
+        "-t", f"{PARAMETERS['threads']}",
+        "-R", REF,
+        "-L", bamlist_path,
+        "-r", region,
+        "--min-af=0.001",
+        "--output-vcf", f"{outdir}/{outfile_prefix}.vcf.gz",
+        "--output-cvg", f"{outdir}/{outfile_prefix}.cvg.tsv.gz",
+        "--smart-rerun"
+    ]
+
+    log_file = f"{outdir}/{outfile_prefix}.log"
+    with open(log_file, "w") as log:
+        subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
+        logger.info(f"Done BaseVar for region {region}")
+
 def run_basevar_step(fq, chromosome):
     ref_fai = load_reference_fai(REF_FAI, [chromosome])
     bamlist_path = bamlist_dir(fq)
     outdir = basevar_outdir(fq)
     os.makedirs(outdir,exist_ok=True)
 
+    tasks = []
     for chr_id, reg_start, reg_end in ref_fai:
         for i in range(reg_start - 1, reg_end, DELTA):
             start = i + 1
-            end = i + DELTA if i + DELTA <= reg_end else reg_end
-            region = f"{chr_id}:{start}-{end}"
-            outfile_prefix = f"{chr_id}_{start}_{end}"
-            logger.info(f"Starting BaseVar for region {region} start at {start} and end at {end}")
+            end = min(i + DELTA, reg_end)
+            tasks.append((fq, chromosome, chr_id, start, end, bamlist_path, outdir))
 
-            command = [
-                TOOLS['basevar'], "basetype",
-                "-t", f"{PARAMETERS['threads']}",
-                "-R", REF,
-                "-L", bamlist_path,
-                "-r", region,
-                "--min-af=0.001",
-                "--output-vcf", f"{outdir}/{outfile_prefix}.vcf.gz",
-                "--output-cvg", f"{outdir}/{outfile_prefix}.cvg.tsv.gz",
-                "--smart-rerun"
-            ]
+    with ThreadPoolExecutor(max_workers=PARAMETERS['threads']) as executor:
+        executor.map(lambda args: run_basevar_region(*args), tasks)
 
-            log_file = f"{outdir}/{outfile_prefix}.log"
-            with open(log_file, "w") as log:
-                subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
-                logger.info(f"Done BaseVar for region {region}") 
+    logger.info(f"All BaseVar jobs for {chromosome} are done!")
 
 
 def create_vcf_list(fq, chromosome):

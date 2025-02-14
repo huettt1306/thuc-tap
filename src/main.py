@@ -8,8 +8,9 @@ from pipeline.reference_panel_prepare import prepare_reference_panel
 from helper.config import PARAMETERS, TRIO_DATA, PATHS
 from helper.metrics import get_fastq_coverage
 from helper.logger import setup_logger
-from helper.file_utils import extract_land1_fq
-from helper.path_define import fastq_path, fastq_path_land1
+from helper.file_utils import extract_lane1_fq
+from helper.converter import convert_cram_to_fastq
+from helper.path_define import fastq_path, fastq_path_lane1, fastq_path_lane2, cram_path, fastq_single_path, fastq_nipt_path
 import os, sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -24,6 +25,11 @@ def pipeline_for_sample(fastq_dir):
     run_glimpse(fastq_dir)
     run_statistic(fastq_dir)
 
+def prepare_data(name):
+    print(f"Preparing data for {name}")
+    if not os.path.exists(fastq_path_lane1(name)):
+        convert_cram_to_fastq(cram_path(name), fastq_path_lane1(name), fastq_path_lane2(name))
+    return get_fastq_coverage(name)
 
 def process_trio(trio_name, trio_info):
     """
@@ -36,32 +42,21 @@ def process_trio(trio_name, trio_info):
     father_name = trio_info["father"]
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        # Submit các tác vụ lọc cho con và mẹ
-        future_child = executor.submit(extract_land1_fq, fastq_path(child_name), fastq_path_land1(child_name))
-        future_mother = executor.submit(extract_land1_fq, fastq_path(mother_name), fastq_path_land1(mother_name))
+       # future_child = executor.submit(prepare_data, child_name)
+        future_mother = executor.submit(prepare_data, mother_name)
 
-        # Đợi các tác vụ hoàn thành
-        future_child.result()
-        future_mother.result()
-
-        # Sau khi lọc xong, tính coverage song song
-        future_child_cov = executor.submit(get_fastq_coverage, child_name)
-        future_mother_cov = executor.submit(get_fastq_coverage, mother_name)
-
-        # Lấy kết quả coverage
-        child_avg_coverage = future_child_cov.result()
-        mother_avg_coverage = future_mother_cov.result()
+        mother_avg_coverage = future_mother.result()
+       # child_avg_coverage = future_child.result()
 
 
     for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
         logger.info(f"######## PROCESSING index {index} ########")
 
         for coverage in PARAMETERS["coverage"]:
-            pipeline_for_sample(generate_single_sample(child_name, child_avg_coverage, coverage, index))
             pipeline_for_sample(generate_single_sample(mother_name, mother_avg_coverage, coverage, index))
 
-            for ff in PARAMETERS["ff"]:
-                pipeline_for_sample(generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index))
+            #for ff in PARAMETERS["ff"]:
+                #pipeline_for_sample(generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index))
 
 
 def main():
@@ -71,12 +66,11 @@ def main():
         logger.error("Please provide a trio name to process.")
         sys.exit(1)
     
-    trio_name = sys.argv[1]  # Lấy tên trio từ đầu vào dòng lệnh
+    trio_name = sys.argv[1]  
     if trio_name not in TRIO_DATA:
         logger.error(f"Trio {trio_name} not found in TRIO_DATA.")
         sys.exit(1)
 
-    # Xử lý trio theo tên
     trio_info = TRIO_DATA[trio_name]
     process_trio(trio_name, trio_info)
 
@@ -84,4 +78,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-# Bao nhiêu snp trên con/mẹ không được call ra (không call ra / tinh sai)
+# 0.1 0.2 0.5 1.0 cov
+# 5%, 10%, 20% ff
+# bước fill snp missing: Tìm option tăng số snp call được 

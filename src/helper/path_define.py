@@ -8,8 +8,11 @@ def cram_path(name):
 def fastq_path(name):
     return os.path.join(PATHS["fastq_directory"], f"{name}.fastq.gz")
 
-def fastq_path_land1(name):
-    return os.path.join(PATHS["fastq_directory"], f"{name}_L1.fastq.gz")
+def fastq_path_lane1(name):
+    return os.path.join(PATHS["fastq_directory"], f"{name}_1.fastq.gz")
+
+def fastq_path_lane2(name):
+    return os.path.join(PATHS["fastq_directory"], f"{name}_2.fastq.gz")
 
 def fastq_single_path(name, coverage, index):
     return os.path.join(PATHS["result_directory"], f"{coverage}x", name, f"sample_{index}")

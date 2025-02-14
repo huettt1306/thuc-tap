@@ -1,6 +1,6 @@
-import pysam, os
+import pysam, os, gzip
 import subprocess
-from helper.path_define import fastq_path_land1
+from helper.path_define import fastq_path_lane1
 from helper.config import TOOLS, PATHS
 from helper.logger import setup_logger
 
@@ -23,7 +23,7 @@ def get_fastq_coverage(name):
 
 
     # Chạy `seqkit stats` để lấy tổng số base (sum_len)
-    input_fastq = fastq_path_land1(name)
+    input_fastq = fastq_path_lane1(name)
     result = subprocess.run(
         f"{TOOLS['seqkit']} stats {input_fastq} | tail -n 1",
         shell=True,
@@ -82,3 +82,35 @@ def evaluate_vcf(ground_truth_file, test_file):
         "precision": precision,
         "recall": recall,
     }
+
+
+def compare_fastq_sequences(file1, file2):
+    diff_count = 0  
+    total_reads = 0  
+    
+    with gzip.open(file1, 'rt') as f1, gzip.open(file2, 'rt') as f2:
+        while True:
+            id1, seq1, plus1, qual1 = f1.readline(), f1.readline(), f1.readline(), f1.readline()
+            id2, seq2, plus2, qual2 = f2.readline(), f2.readline(), f2.readline(), f2.readline()
+
+            if not seq1 or not seq2:
+                break
+
+            total_reads += 1
+            if seq1.strip() != seq2.strip(): 
+                diff_count += 1
+                print("\n================================\n")
+                print(f"Read {total_reads} is different.")
+                print(f"File 1 Sequence: {seq1.strip()}")
+                print(f"File 2 Sequence: {seq2.strip()}")
+
+    print("\n================================\n")
+    print(f"Total reads compared: {total_reads}")
+    print(f"Total different sequences: {diff_count}")
+    
+    if diff_count == 0:
+        print("✅ FASTQ files have identical sequences.")
+    else:
+        print("❌ FASTQ files have different sequences.")
+
+    return diff_count

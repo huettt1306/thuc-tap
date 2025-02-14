@@ -1,6 +1,6 @@
 import os, subprocess
 from helper.config import PATHS, TOOLS
-from helper.path_define import fastq_path_land1, fastq_single_path, fastq_nipt_path, cram_path
+from helper.path_define import fastq_path_lane1, fastq_single_path, fastq_nipt_path
 from helper.logger import setup_logger
 from helper.file_utils import filter_with_seqtk
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 logger = setup_logger(os.path.join(PATHS["logs"], "generate.log"))
 
 def generate_random_reads_files(name, coverage, avg_coverage, output_prefix):
-    input_file = fastq_path_land1(name)
+    input_file = fastq_path_lane1(name)
     output_file = f"{output_prefix}.fastq.gz"
     if os.path.exists(output_file):
         logger.info(f"File {output_file} already exists. Skipping creation.")
@@ -41,8 +41,8 @@ def generate_merge_files(child_name, mother_name, coverage, child_avg_coverage, 
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         # Submit các tác vụ lọc cho con và mẹ
-        future_child = executor.submit(filter_with_seqtk, fastq_path_land1(child_name), child_output, child_ratio)
-        future_mother = executor.submit(filter_with_seqtk, fastq_path_land1(mother_name), mother_output, mother_ratio)
+        future_child = executor.submit(filter_with_seqtk, fastq_path_lane1(child_name), child_output, child_ratio)
+        future_mother = executor.submit(filter_with_seqtk, fastq_path_lane1(mother_name), mother_output, mother_ratio)
 
         # Đợi các tác vụ hoàn thành
         future_child.result()

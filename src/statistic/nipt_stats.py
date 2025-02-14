@@ -1,7 +1,7 @@
 import pandas as pd
 import os
-from cyvcf2 import VCF
-from helper.variant import af_variant, af_same_gt, af_priv_gt, af_priv_true_gt, af_same_false_gt, af_same_true_gt
+from helper.GT import get_af_gt, get_af_gt_true, get_af_gt_false, get_af_gt_not_given, get_af_gt_priv_true, get_af_gt_same_true, get_af_gt_same_false
+from helper.ALT import get_af_alt, get_af_alt_true, get_af_alt_false, get_af_alt_not_given, get_af_alt_priv_true, get_af_alt_same_true, get_af_alt_same_false
 from helper.file_utils import save_results_to_csv, process_vcf
 from helper.config import PATHS, PARAMETERS
 from helper.logger import setup_logger
@@ -56,26 +56,58 @@ def update_stats(stats, af, field):
     """
     Kiểm tra xem af đã có trong stats chưa, nếu chưa thì thêm mới, nếu có thì cập nhật trường 'field'.
     """
+    if af < 0:
+        return stats
+    
     if af not in stats:
         # Nếu chưa có, khởi tạo thống kê cho af
         stats[af] = {
-            "Child Variants": 0,
-            "Mother Variants": 0,
-            "Father Variants": 0,
-            "BaseVar Variants": 0,
-            "Glimpse Variants": 0,
+            "GT Child": 0,
+            "GT Mother": 0,
+            "GT Father": 0,
+            "GT Glimpse": 0,
 
-            "Child Variants different from Mother": 0,
-            "Father Variants different from Mother": 0,
-            "Child Variants same as Mother": 0,
-            "Father Variants same as Mother": 0,
+            "GT Child diff from Mother": 0,
+            "GT Father diff from Mother": 0,
+            "GT Child same as Mother": 0,
+            "GT Child same as Father": 0,
+            "GT Father same as Mother": 0,
 
-            "Glimpse Variants same as Child": 0,
-            "Glimpse Variants same as Mother": 0,
-            "Glimpse Variants same as Child but different from Mother": 0,
-            "Glimpse Variants same as Mother but different from Child": 0,
-            "Glimpse Variants same as Child and Mother": 0,
-            "Glimpse Variants Different from Child and Mother": 0,
+            "GT Glimpse same as Child": 0,
+            "GT Glimpse same as Mother": 0,
+            "GT Glimpse diff from Child": 0,
+            "GT Glimpse diff from Mother": 0,
+
+            "GT Glimpse same as Child but diff from Mother": 0,
+            "GT Glimpse same as Mother but diff from Child": 0,
+            "GT Glimpse same as Child and Mother": 0,
+            "GT Glimpse diff from Child and Mother": 0,
+
+            "GT Child not found": 0,
+            "GT Mother not found": 0,
+            "ALT Child not found": 0,
+            "ALT Mother not found": 0,
+            
+            "ALT Child": 0,
+            "ALT Mother": 0,
+            "ALT Father": 0,
+            "ALT Glimpse": 0,
+
+            "ALT Child diff from Mother": 0,
+            "ALT Father diff from Mother": 0,
+            "ALT Child same as Mother": 0,
+            "ALT Child same as Father": 0,
+            "ALT Father same as Mother": 0,
+
+            "ALT Glimpse same as Child": 0,
+            "ALT Glimpse same as Mother": 0,
+            "ALT Glimpse diff from Child": 0,
+            "ALT Glimpse diff from Mother": 0,
+
+            "ALT Glimpse same as Child but diff from Mother": 0,
+            "ALT Glimpse same as Mother but diff from Child": 0,
+            "ALT Glimpse same as Child and Mother": 0,
+            "ALT Glimpse diff from Child and Mother": 0,
         }
 
     # Cập nhật giá trị của trường 'field'
@@ -91,25 +123,53 @@ def calculate_af_nipt_statistics(df):
 
     # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
-        stats = update_stats(stats, af_variant(row, "Child"), "Child Variants")
-        stats = update_stats(stats, af_variant(row, "Mother"), "Mother Variants")
-        stats = update_stats(stats, af_variant(row, "Father"), "Father Variants")
-        stats = update_stats(stats, af_variant(row, "BaseVar"), "BaseVar Variants")
-        stats = update_stats(stats, af_variant(row, "Glimpse"), "Glimpse Variants")
+        stats = update_stats(stats, get_af_gt(row, "Child"), "GT Child")
+        stats = update_stats(stats, get_af_gt(row, "Mother"), "GT Mother")
+        stats = update_stats(stats, get_af_gt(row, "Father"), "GT Father")
+        stats = update_stats(stats, get_af_gt(row, "Glimpse"), "GT Glimpse")
 
-        stats = update_stats(stats, af_priv_gt(row, "Child", "Mother"), "Child Variants different from Mother")
-        stats = update_stats(stats, af_priv_gt(row, "Father", "Mother"), "Father Variants different from Mother")
-        stats = update_stats(stats, af_same_gt(row, "Child", "Mother"), "Child Variants same as Mother")
-        stats = update_stats(stats, af_same_gt(row, "Father", "Mother"), "Father Variants same as Mother")
+        stats = update_stats(stats, get_af_gt_false(row, "Child", "Mother"), "GT Child diff from Mother")
+        stats = update_stats(stats, get_af_gt_false(row, "Father", "Mother"), "GT Father diff from Mother")
+        stats = update_stats(stats, get_af_gt_true(row, "Child", "Mother"), "GT Child same as Mother")
+        stats = update_stats(stats, get_af_gt_true(row, "Child", "Father"), "GT Child same as Father")
+        stats = update_stats(stats, get_af_gt_true(row, "Father", "Mother"), "GT Father same as Mother")
 
-        stats = update_stats(stats, af_same_gt(row, "Glimpse", "Child"), "Glimpse Variants same as Child")
-        stats = update_stats(stats, af_same_gt(row, "Glimpse", "Mother"), "Glimpse Variants same as Mother")
+        stats = update_stats(stats, get_af_gt_true(row, "Glimpse", "Child"), "GT Glimpse same as Child")
+        stats = update_stats(stats, get_af_gt_true(row, "Glimpse", "Mother"), "GT Glimpse same as Mother")
+        stats = update_stats(stats, get_af_gt_false(row, "Glimpse", "Child"), "GT Glimpse diff from Child")
+        stats = update_stats(stats, get_af_gt_false(row, "Glimpse", "Mother"), "GT Glimpse diff from Mother")
 
-        stats = update_stats(stats, af_priv_true_gt(row, "Glimpse", "Child", "Mother"), "Glimpse Variants same as Child but different from Mother")
-        stats = update_stats(stats, af_priv_true_gt(row, "Glimpse", "Mother", "Child"), "Glimpse Variants same as Mother but different from Child")
-        stats = update_stats(stats, af_same_true_gt(row, "Glimpse", "Child", "Mother"), "Glimpse Variants same as Child and Mother")
-        stats = update_stats(stats, af_same_false_gt(row, "Glimpse", "Child", "Mother"), "Glimpse Variants Different from Child and Mother")
+        stats = update_stats(stats, get_af_gt_priv_true(row, "Glimpse", "Child", "Mother"), "GT Glimpse same as Child but diff from Mother")
+        stats = update_stats(stats, get_af_gt_priv_true(row, "Glimpse", "Mother", "Child"), "GT Glimpse ame as Mother but diff from Child")
+        stats = update_stats(stats, get_af_gt_same_true(row, "Glimpse", "Child", "Mother"), "GT Glimpse same as Child and Mother")
+        stats = update_stats(stats, get_af_gt_same_false(row, "Glimpse", "Child", "Mother"), "GT Glimpse diff from Child and Mother")
         
+        stats = update_stats(stats, get_af_gt_not_given(row, "Child", "Glimpse"), "GT Child not found")
+        stats = update_stats(stats, get_af_gt_not_given(row, "Mother", "Glimpse"), "GT Mother not found")
+        stats = update_stats(stats, get_af_alt_not_given(row, "Child", "Glimpse"), "ALT Child not found")
+        stats = update_stats(stats, get_af_alt_not_given(row, "Mother", "Glimpse"), "ALT Mother not found")
+        
+        stats = update_stats(stats, get_af_alt(row, "Child"), "ALT Child")
+        stats = update_stats(stats, get_af_alt(row, "Mother"), "ALT Mother")
+        stats = update_stats(stats, get_af_alt(row, "Father"), "ALT Father")
+        stats = update_stats(stats, get_af_alt(row, "Glimpse"), "ALT Glimpse")
+
+        stats = update_stats(stats, get_af_alt_false(row, "Child", "Mother"), "ALT Child diff from Mother")
+        stats = update_stats(stats, get_af_alt_false(row, "Father", "Mother"), "ALT Father diff from Mother")
+        stats = update_stats(stats, get_af_alt_true(row, "Child", "Mother"), "ALT Child same as Mother")
+        stats = update_stats(stats, get_af_alt_true(row, "Child", "Father"), "ALT Child same as Father")
+        stats = update_stats(stats, get_af_alt_true(row, "Father", "Mother"), "ALT Father same as Mother")
+
+        stats = update_stats(stats, get_af_alt_true(row, "Glimpse", "Child"), "ALT Glimpse same as Child")
+        stats = update_stats(stats, get_af_alt_true(row, "Glimpse", "Mother"), "ALT Glimpse same as Mother")
+        stats = update_stats(stats, get_af_alt_false(row, "Glimpse", "Child"), "ALT Glimpse diff from Child")
+        stats = update_stats(stats, get_af_alt_false(row, "Glimpse", "Mother"), "ALT Glimpse diff from Mother")
+
+        stats = update_stats(stats, get_af_alt_priv_true(row, "Glimpse", "Child", "Mother"), "ALT Glimpse same as Child but diff from Mother")
+        stats = update_stats(stats, get_af_alt_priv_true(row, "Glimpse", "Mother", "Child"), "ALT Glimpse ame as Mother but diff from Child")
+        stats = update_stats(stats, get_af_alt_same_true(row, "Glimpse", "Child", "Mother"), "ALT Glimpse same as Child and Mother")
+        stats = update_stats(stats, get_af_alt_same_false(row, "Glimpse", "Child", "Mother"), "ALT Glimpse diff from Child and Mother")
+
     return stats
 
 

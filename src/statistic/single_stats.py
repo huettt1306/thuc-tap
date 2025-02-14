@@ -1,7 +1,7 @@
 import pandas as pd
 import os
-from cyvcf2 import VCF
-from helper.variant import af_variant, af_same_gt
+from helper.GT import get_af_gt, get_af_gt_true, get_af_gt_false, get_af_gt_not_given
+from helper.ALT import get_af_alt, get_af_alt_true, get_af_alt_false, get_af_alt_not_given
 from helper.file_utils import save_results_to_csv, process_vcf
 from helper.config import PATHS, PARAMETERS
 from helper.logger import setup_logger
@@ -50,14 +50,23 @@ def update_stats(stats, af, field):
     """
     Kiểm tra xem af đã có trong stats chưa, nếu chưa thì thêm mới, nếu có thì cập nhật trường 'field'.
     """
+    if af < 0:
+        return stats
+    
     if af not in stats:
-        # Nếu chưa có, khởi tạo thống kê cho af
         stats[af] = {
-            "Truth Variants": 0,
-            "BaseVar Variants": 0,
-            "BaseVar True Variants": 0,
-            "Glimpse Variants": 0,
-            "Glimpse True Variants": 0
+            "GT Truth": 0,
+            "GT Glimpse": 0,
+            "GT Glimpse True": 0,
+            "GT Glimpse False": 0,
+            "GT Truth not found": 0,
+
+            "ALT Truth": 0,
+            "ALT Basevar": 0,
+            "ALT Glimpse": 0,
+            "ALT Glimpse True": 0,
+            "ALT Glimpse False": 0,
+            "ALT Truth not found": 0,
         }
 
     # Cập nhật giá trị của trường 'field'
@@ -72,14 +81,18 @@ def calculate_af_single_statistics(df):
     """
     stats = {}
 
-    # Duyệt qua từng dòng trong DataFrame df
     for _, row in df.iterrows():
-        # Cập nhật thống kê cho từng loại
-        stats = update_stats(stats, af_variant(row, "Truth"), "Truth Variants")
-        stats = update_stats(stats, af_variant(row, "BaseVar"), "BaseVar Variants")
-        stats = update_stats(stats, af_variant(row, "Glimpse"), "Glimpse Variants")
-        stats = update_stats(stats, af_same_gt(row, "BaseVar", "Truth"), "BaseVar True Variants")
-        stats = update_stats(stats, af_same_gt(row, "Glimpse", "Truth"), "Glimpse True Variants")
+        stats = update_stats(stats, get_af_gt(row, "Truth"), "GT Truth")
+        stats = update_stats(stats, get_af_gt(row, "Glimpse"), "GT Glimpse")
+        stats = update_stats(stats, get_af_gt_true(row, "Glimpse", "Truth"), "GT Glimpse True")
+        stats = update_stats(stats, get_af_gt_false(row, "Glimpse", "Truth"), "GT Glimpse False")
+        stats = update_stats(stats, get_af_gt_not_given(row, "Truth", "Glimpse"), "GT Truth not found")
+
+        stats = update_stats(stats, get_af_alt(row, "Truth"), "ALT Truth")
+        stats = update_stats(stats, get_af_alt(row, "Glimpse"), "ALT Glimpse")
+        stats = update_stats(stats, get_af_alt_true(row, "Glimpse", "Truth"), "ALT Glimpse True")
+        stats = update_stats(stats, get_af_alt_false(row, "Glimpse", "Truth"), "ALT Glimpse False")
+        stats = update_stats(stats, get_af_alt_not_given(row, "Truth", "Glimpse"), "ALT Truth not found")
 
     return stats
 
