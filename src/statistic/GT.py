@@ -2,23 +2,17 @@ from helper.converter import convert_af_to_list
 def get_af(gt, af):
     """
     Tính af cho biến thể trong kiểu gen gt
-    0/0 -> 1-sum(af)
+    0/0 -> 1-af
     0/1, 1/1 -> af
     Trả về -1 nếu kiểu gen không hợp lệ
     """
-    try:
-        af = convert_af_to_list(af)
-        allens = [int(a) for a in gt.split("/") if a != "."]
-        if len(allens) != 2 or allens[0] < 0:
-            return -1
-        if allens[1] == 0: 
-            return int(100 * (1 - sum(af)))
-        else:
-            return int(100 * af[allens[1]-1])
-    except Exception as e:
-        print(af)
-        print(e)
-        exit(0)
+    allens = [int(a) for a in gt.split("/") if a != "."]
+    if len(allens) != 2 or allens[0] < 0 or allens[1] > 1 or af < 0:
+        return -1
+    if allens[1] == 0: 
+        return int(100 * (1 - af))
+    else:
+        return int(100 * af)
 
 def valid_gt(gt):
     """
@@ -27,7 +21,7 @@ def valid_gt(gt):
     allens = [int(a) for a in gt.split("/") if a != "."]
     if len(allens) != 2:
         return False
-    if allens[0] < 0:
+    if allens[0] < 0 or allens[1] > 1:
         return False 
     return True
 

@@ -61,6 +61,7 @@ def extract_vcf(sample_name, vcf_reference, output_vcf_path):
     vcf_command = [
         TOOLS["bcftools"], "view", vcf_reference,
         "--samples", sample_name,
+        "-m", "2", "-M", "2",
         "-Oz", "-o", output_vcf_path,
         f"--threads={PARAMETERS['threads']}"
     ]
@@ -88,7 +89,7 @@ def process_vcf(vcf_path, method_name):
                 "CHROM": record.CHROM,
                 "POS": record.POS,
                 "REF": record.REF,
-                "ALT": ",".join(map(str, record.ALT)) if isinstance(record.ALT, (list, tuple)) else str(record.ALT),
+                "ALT": record.ALT,
                 f"AF_{method_name}": dict(record.INFO).get('AF', -1),
                 f"GT_{method_name}": convert_genotype(record.genotypes[0]),
                 method_name: True

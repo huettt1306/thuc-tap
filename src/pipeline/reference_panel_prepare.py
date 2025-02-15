@@ -102,7 +102,7 @@ def process_snp_sites(chromosome):
     logger.info(f"Processing SNP sites for chromosome {chromosome}...")
     commands = [
         [BCFTOOLS, "view", "-G", "-m", "2", "-M", "2", "-v", "snps", vcf_path, "-Oz", "-o", filtered_vcf, "--threads", f"{PARAMETERS['threads']}",],
-        [BCFTOOLS, "index", "-f", "-@", f"{PARAMETERS['threads']}", filtered_vcf],
+        [BCFTOOLS, "index", "-f", filtered_vcf],
     ]
 
     # Chạy các lệnh bcftools view và index
