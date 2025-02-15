@@ -89,6 +89,7 @@ def calculate_af_single_statistics(df):
         stats = update_stats(stats, get_af_gt_not_given(row, "Truth", "Glimpse"), "GT Truth not found")
 
         stats = update_stats(stats, get_af_alt(row, "Truth"), "ALT Truth")
+        stats = update_stats(stats, get_af_alt(row, "BaseVar"), "ALT Basevar")
         stats = update_stats(stats, get_af_alt(row, "Glimpse"), "ALT Glimpse")
         stats = update_stats(stats, get_af_alt_true(row, "Glimpse", "Truth"), "ALT Glimpse True")
         stats = update_stats(stats, get_af_alt_false(row, "Glimpse", "Truth"), "ALT Glimpse False")

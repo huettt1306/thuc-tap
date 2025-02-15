@@ -140,7 +140,7 @@ def calculate_af_nipt_statistics(df):
         stats = update_stats(stats, get_af_gt_false(row, "Glimpse", "Mother"), "GT Glimpse diff from Mother")
 
         stats = update_stats(stats, get_af_gt_priv_true(row, "Glimpse", "Child", "Mother"), "GT Glimpse same as Child but diff from Mother")
-        stats = update_stats(stats, get_af_gt_priv_true(row, "Glimpse", "Mother", "Child"), "GT Glimpse ame as Mother but diff from Child")
+        stats = update_stats(stats, get_af_gt_priv_true(row, "Glimpse", "Mother", "Child"), "GT Glimpse same as Mother but diff from Child")
         stats = update_stats(stats, get_af_gt_same_true(row, "Glimpse", "Child", "Mother"), "GT Glimpse same as Child and Mother")
         stats = update_stats(stats, get_af_gt_same_false(row, "Glimpse", "Child", "Mother"), "GT Glimpse diff from Child and Mother")
         
@@ -166,7 +166,7 @@ def calculate_af_nipt_statistics(df):
         stats = update_stats(stats, get_af_alt_false(row, "Glimpse", "Mother"), "ALT Glimpse diff from Mother")
 
         stats = update_stats(stats, get_af_alt_priv_true(row, "Glimpse", "Child", "Mother"), "ALT Glimpse same as Child but diff from Mother")
-        stats = update_stats(stats, get_af_alt_priv_true(row, "Glimpse", "Mother", "Child"), "ALT Glimpse ame as Mother but diff from Child")
+        stats = update_stats(stats, get_af_alt_priv_true(row, "Glimpse", "Mother", "Child"), "ALT Glimpse same as Mother but diff from Child")
         stats = update_stats(stats, get_af_alt_same_true(row, "Glimpse", "Child", "Mother"), "ALT Glimpse same as Child and Mother")
         stats = update_stats(stats, get_af_alt_same_false(row, "Glimpse", "Child", "Mother"), "ALT Glimpse diff from Child and Mother")
 

@@ -84,13 +84,12 @@ def process_vcf(vcf_path, method_name):
         logger.info(f"Processing VCF file: {vcf_path} for method {method_name}")
         vcf_reader = VCF(vcf_path)
         for record in vcf_reader:
-            af_value = dict(record.INFO).get('AF', None)
             variants.append({
                 "CHROM": record.CHROM,
                 "POS": record.POS,
                 "REF": record.REF,
-                "ALT": str(record.ALT[0]) if record.ALT else None,
-                f"AF_{method_name}": af_value[0] if isinstance(af_value, tuple) else af_value if isinstance(af_value, float) else None,
+                "ALT": ",".join(map(str, record.ALT)) if isinstance(record.ALT, (list, tuple)) else str(record.ALT),
+                f"AF_{method_name}": dict(record.INFO).get('AF', -1),
                 f"GT_{method_name}": convert_genotype(record.genotypes[0]),
                 method_name: True
             })

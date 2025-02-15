@@ -42,11 +42,11 @@ def process_trio(trio_name, trio_info):
     father_name = trio_info["father"]
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-       # future_child = executor.submit(prepare_data, child_name)
+        future_child = executor.submit(prepare_data, child_name)
         future_mother = executor.submit(prepare_data, mother_name)
 
         mother_avg_coverage = future_mother.result()
-       # child_avg_coverage = future_child.result()
+        child_avg_coverage = future_child.result()
 
 
     for index in range(PARAMETERS["startSampleIndex"], PARAMETERS["endSampleIndex"] + 1):
@@ -55,8 +55,8 @@ def process_trio(trio_name, trio_info):
         for coverage in PARAMETERS["coverage"]:
             pipeline_for_sample(generate_single_sample(mother_name, mother_avg_coverage, coverage, index))
 
-            #for ff in PARAMETERS["ff"]:
-                #pipeline_for_sample(generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index))
+            for ff in PARAMETERS["ff"]:
+                pipeline_for_sample(generate_nipt_sample(child_name, mother_name, father_name, child_avg_coverage, mother_avg_coverage, coverage, ff, index))
 
 
 def main():

@@ -27,16 +27,31 @@ def convert_cram_to_fastq(cram_path, output_fastq_path_1, output_fastq_path_2):
         else:
             logger.info(f"FASTQ file created successfully.")
             os.remove(cram_path)
+            os.remove(output_fastq_path_2)
             logger.info(f"Original CRAM file {cram_path} deleted.")
     except Exception as e:
         logger.error(f"Failed to convert CRAM to FASTQ: {e}")
 
 
 def convert_genotype(genotype):
-    if len(genotype) != 2:
+    if len(genotype) < 2:
         return "-1/-1"
     allen1 = genotype[0] if isinstance(genotype[0], int) else -1
     allen2 = genotype[1] if isinstance(genotype[1], int) else -1
     if allen1 > allen2:
         allen1, allen2 = allen2, allen1
     return f"{allen1}/{allen2}"
+
+def convert_af_to_list(af):
+    try:
+        if isinstance(af, (int, float)):  
+            return [float(af)]  # Nếu là số, chuyển thành danh sách chứa 1 phần tử
+        elif isinstance(af, str):  
+            return [float(a.strip()) for a in af.strip("()").split(",")]  # Nếu là chuỗi tuple, chuyển thành list float
+        elif isinstance(af, (list, tuple)):
+            return list(map(float, af))  # Nếu là list hoặc tuple, chuyển từng phần tử thành float
+        else:
+            return [-1.0]  # Nếu AF không hợp lệ, trả về [0.0] mặc định
+    except Exception as e:
+        print(f"Lỗi trong convert_af_to_list: {e}, af={af}")  # In lỗi để debug
+        return [-1.0]  # Tránh crash chương trình
