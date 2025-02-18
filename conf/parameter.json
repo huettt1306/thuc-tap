@@ -1,11 +1,14 @@
 {
-    "coverage": [0.1, 0.05, 0.2],
-    "ff": [0.10, 0.15, 0.05, 0.20, 0.25, 0.30],
+    "coverage": [0.1, 0.2, 0.5, 1],
+    "read_length": 50,
+    "refsize": 3100000000,
+    "ff": [0.05, 0.10, 0.20],
     "startSampleIndex": 1,
-    "endSampleIndex": 5,
-    "chrs": ["chr20"],
+    "endSampleIndex": 1,
+    "chrs": ["chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21", "chr22", "chrX", "chrY"],
     "basevar": {
         "delta": 5000000
     },
-    "threads": 8
+    "maf": 0.001,
+    "threads": 2
 } 

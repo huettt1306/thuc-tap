@@ -3,6 +3,7 @@ import os
 from helper.config import TOOLS, PARAMETERS, PATHS
 from helper.path_define import vcf_prefix, get_vcf_path, filtered_tsv_path, filtered_vcf_path, chunks_path, norm_vcf_path
 from helper.logger import setup_logger
+from concurrent.futures import ThreadPoolExecutor
 
 # Thiết lập logger
 logger = setup_logger(os.path.join(PATHS["logs"], "reference_panel_pipeline.log"))
@@ -176,30 +177,37 @@ def prepare_gatk_bundle():
         print(f"{dbsnp} already exists. No action needed.")
 
 
-def prepare_reference_panel():
+def prepare_reference_panel(chromosome):
+    """
+    Thực hiện các bước chuẩn bị reference panel cho một chromosome.
+    """
+    os.makedirs(reference_path, exist_ok=True)
+
+    if check_reference_panel(chromosome):
+        logger.info(f"Reference panel for {chromosome} already exists. Skipping.")
+        return
+
+    # Step 1: Download reference panel
+    download_reference_panel(chromosome)
+
+    # Step 2: Normalize and filter reference panel
+    normalize_and_filter_reference(chromosome)
+
+    # Step 3: Process SNP sites
+    process_snp_sites(chromosome)
+
+    # Step 4: Chunk reference genome
+    chunk_reference_genome(chromosome)
+
+    logger.info(f"Reference panel preparation completed for {chromosome}.")
+
+
+def run_prepare_reference_panel():
     """
     Thực hiện toàn bộ quy trình chuẩn bị reference panel cho các chromosome.
     """
-    for chromosome in PARAMETERS["chrs"]:
-        os.makedirs(reference_path, exist_ok=True)
+    # Step 0: verify gatk bundle
+    prepare_gatk_bundle()
 
-        if check_reference_panel(chromosome):
-            logger.info(f"Reference panel for {chromosome} already exists. Skipping.")
-            continue
-        
-        # Step 0: verify gatk bundle
-        prepare_gatk_bundle()
-
-        # Step 1: Download reference panel
-        download_reference_panel(chromosome)
-
-        # Step 2: Normalize and filter reference panel
-        normalize_and_filter_reference(chromosome)
-
-        # Step 3: Process SNP sites
-        process_snp_sites(chromosome)
-
-        # Step 4: Chunk reference genome
-        chunk_reference_genome(chromosome)
-
-        logger.info(f"Reference panel preparation completed for {chromosome}.")
+    with ThreadPoolExecutor(max_workers=25) as executor:  # Giới hạn 24 luồng song song
+        executor.map(prepare_reference_panel, PARAMETERS["chrs"])
