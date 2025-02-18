@@ -1,7 +1,7 @@
 import pandas as pd
 import os
-from helper.GT import get_af_gt, get_af_gt_true, get_af_gt_false, get_af_gt_not_given
-from helper.ALT import get_af_alt, get_af_alt_true, get_af_alt_false, get_af_alt_not_given
+from statistic.GT import get_af_gt, get_af_gt_true, get_af_gt_false, get_af_gt_not_given
+from statistic.ALT import get_af_alt, get_af_alt_true, get_af_alt_false, get_af_alt_not_given
 from helper.file_utils import save_results_to_csv, process_vcf
 from helper.config import PATHS, PARAMETERS
 from helper.logger import setup_logger

@@ -9,10 +9,8 @@ def get_af(gt, af):
     allens = [int(a) for a in gt.split("/") if a != "."]
     if len(allens) != 2 or allens[0] < 0 or allens[1] > 1 or af < 0:
         return -1
-    if allens[1] == 0: 
-        return int(100 * (1 - af))
-    else:
-        return int(100 * af)
+    return int(100 * min(af, 1 - af))
+
 
 def valid_gt(gt):
     """

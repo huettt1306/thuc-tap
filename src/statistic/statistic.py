@@ -11,6 +11,21 @@ from statistic.nipt_stats import compare_nipt_variants, calculate_af_nipt_statis
 logger = setup_logger(os.path.join(PATHS["logs"], "statistic_pipeline.log"))
 
 
+def process_dataframe(df):
+    # Chuyển tất cả các cột sang kiểu số, nếu lỗi -> thay bằng 0
+    df = df.apply(pd.to_numeric, errors='coerce').fillna(0)
+    
+    # Sắp xếp theo AF (%) tăng dần
+    df = df.sort_values(by="AF (%)", ascending=True)
+
+    # Tính tổng tích lũy cho tất cả các cột
+    for col in df.columns:
+        if col != "AF (%)":
+            df[f'Total {col}'] = df[col][::-1].cumsum()[::-1]
+
+    return df
+
+
 def generate_summary_statistics(df, output_file, type="single"):
     """
     Tạo thống kê cho toàn bộ DataFrame theo từng AF.
@@ -30,7 +45,7 @@ def generate_summary_statistics(df, output_file, type="single"):
         # Duyệt qua các AF trong kết quả thống kê đã tính toán
         for af_percent, stat_values in stats.items():
             # Cập nhật giá trị AF vào stats_data
-            stats_data["AF (%)"].append(f"{af_percent}%")
+            stats_data["AF (%)"].append(int(af_percent))
 
             # Cập nhật các giá trị thống kê vào stats_data
             for key, value in stat_values.items():
@@ -39,12 +54,7 @@ def generate_summary_statistics(df, output_file, type="single"):
                 stats_data[key].append(value)
 
         # Tạo DataFrame từ stats_data
-        summary_df = pd.DataFrame(stats_data)
-
-        # Sắp xếp theo cột "AF (%)" theo thứ tự tăng dần (hoặc giảm dần)
-        summary_df["AF (%)"] = summary_df["AF (%)"].apply(lambda x: int(x.replace("%", "")))  # Chuyển giá trị AF thành kiểu số
-        summary_df = summary_df.sort_values(by="AF (%)", ascending=True)  # Sắp xếp theo AF (%) tăng dần
-        summary_df["AF (%)"] = summary_df["AF (%)"].apply(lambda x: f"{x}%")  # Chuyển lại giá trị AF thành kiểu string với dấu %
+        summary_df = process_dataframe(pd.DataFrame(stats_data))
 
         # Lưu kết quả vào file CSV
         save_results_to_csv(output_file, summary_df)
@@ -69,7 +79,7 @@ def statistic(fq, chromosome):
 
         if "_" not in sample_name:
             df = compare_single_variants(ground_truth_vcf(sample_name, chromosome), basevar_path, glimpse_path, statistic_variants(fq, chromosome))
-            generate_summary_statistics(df, statistic_summary(fq, chromosome))
+            return generate_summary_statistics(df, statistic_summary(fq, chromosome))
             
         else:
             child, mom, dad = sample_name.split("_")
@@ -78,9 +88,8 @@ def statistic(fq, chromosome):
             father_path = ground_truth_vcf(dad, chromosome)
 
             df = compare_nipt_variants(child_path, mother_path, father_path, basevar_path, glimpse_path, statistic_variants(fq, chromosome))
-            generate_summary_statistics(df, statistic_summary(fq, chromosome), "nipt")
+            return generate_summary_statistics(df, statistic_summary(fq, chromosome), "nipt")
             
-        logger.info(f"Completed statistics for sample {sample_name} on chromosome {chromosome}")
     except Exception as e:
         logger.error(f"Error in statistic function for sample {sample_name} and chromosome {chromosome}: {e}")
         raise
@@ -90,10 +99,23 @@ def run_statistic(fq):
     try:
         logger.info(f"Starting full statistics pipeline for sample {fq}")
 
-        for chromosome in PARAMETERS["chrs"]:
-            statistic(fq, chromosome)
+        all_data = []  # Dùng list để lưu các DataFrame tạm thời
 
+        for chromosome in PARAMETERS["chrs"]:
+            df = statistic(fq, chromosome)
+
+            if df is not None and not df.empty:
+                all_data.append(df)  # Thêm vào danh sách, chưa merge ngay
+
+        if all_data:  # Nếu có dữ liệu, thực hiện gộp và cộng tổng
+            all_df = pd.concat(all_data).groupby("AF", as_index=False).sum()
+        else:
+            all_df = pd.DataFrame()  # Nếu không có dữ liệu, trả về DataFrame rỗng
+
+        save_results_to_csv(statistic_summary(fq), all_df)
         logger.info(f"Completed full statistics pipeline for sample {fq}")
+
+        return all_df
     except Exception as e:
         logger.error(f"Error in run_statistic pipeline for sample {fq}: {e}")
         raise

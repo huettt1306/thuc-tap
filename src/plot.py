@@ -6,7 +6,7 @@ from helper.file_utils import save_results_to_csv
 from helper.path_define import statistic_outdir, fastq_single_path, fastq_nipt_path
 
 
-def read_and_process_single_samples(chromosome, outdir):
+def read_and_process_single_samples(outdir, chromosome="all"):
     """
     Đọc và xử lý tất cả các mẫu.
     """
@@ -25,19 +25,8 @@ def read_and_process_single_samples(chromosome, outdir):
 
                     df = pd.read_csv(sample_path)
 
-                    # Đảm bảo các cột số được xử lý đúng kiểu
-                    numeric_cols = df.columns.difference(['AF (%)'])  # Loại trừ cột 'AF (%)'
-                    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-
-                    df["AF (%)"] = df["AF (%)"].str.replace("%", "").astype(float)
-                    df_rare = df[(df["AF (%)"] > 0) & (df["AF (%)"] < 50)]
-
-                    for col in df.columns:
-                        df[f'Total {col}'] = df[col][::-1].cumsum()[::-1]
-                        df[f'Rare {col}'] = df_rare[col][::-1].cumsum()[::-1]
-
                     category_list = ["AF (%)"]
-                    for type in ["Total GT", "Total ALT", "Rare GT"]:
+                    for type in ["Total GT", "Total ALT"]:
                         df[f"{type} correct ratio"] = df[f'{type} Glimpse True'] / df[f"{type} Glimpse"]
                         df[f"{type} found ratio"] = df[f'{type} Glimpse True'] / df[f"{type} Truth"]
                         df[f"{type} missing ratio"] = df[f'{type} Truth not found'] / df[f"{type} Truth"]
@@ -50,10 +39,10 @@ def read_and_process_single_samples(chromosome, outdir):
         df_mean = pd.concat([df[category_list] for df in df_list]).groupby(level=0).mean()
         save_results_to_csv(os.path.join(outdir, f"summary_{coverage}x.csv"), df_mean)
 
-        for type in ["Total GT", "Total ALT", "Rare GT"]:
+        for type in ["Total GT", "Total ALT"]:
             plot_mean_data(df_mean, os.path.join(outdir, f"{type}_{coverage}x.png"), type)
 
-def read_and_process_nipt_samples(chromosome, outdir):
+def read_and_process_nipt_samples(outdir, chromosome="all"):
     """
     Đọc và xử lý tất cả các mẫu NIPT từ các thư mục trong root_dir.
     """
@@ -76,19 +65,8 @@ def read_and_process_nipt_samples(chromosome, outdir):
 
                     df = pd.read_csv(sample_path)
 
-                    # Đảm bảo các cột số được xử lý đúng kiểu
-                    numeric_cols = df.columns.difference(['AF (%)']) 
-                    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-
-                    df["AF (%)"] = df["AF (%)"].str.replace("%", "").astype(float)
-                    df_rare = df[(df["AF (%)"] > 0) & (df["AF (%)"] < 50)]
-
-                    for col in df.columns:
-                        df[f'Total {col}'] = df[col][::-1].cumsum()[::-1]
-                        df[f'Rare {col}'] = df_rare[col][::-1].cumsum()[::-1]
-
                     category_list = ["AF (%)"]
-                    for type in ["Total GT", "Total ALT", "Rare GT"]:
+                    for type in ["Total GT", "Total ALT"]:
                         for truth in ["Mother", "Child"]:
                             df[f"{type} {truth} correct ratio"] = df[f'{type} Glimpse same as {truth}'] / df[f"{type} Glimpse"]
                             df[f"{type} {truth} found ratio"] = df[f'{type} Glimpse same as {truth}'] / df[f"{type} {truth}"]
@@ -102,7 +80,7 @@ def read_and_process_nipt_samples(chromosome, outdir):
             df_mean = pd.concat([df[category_list] for df in df_list]).groupby(level=0).mean()
             save_results_to_csv(os.path.join(outdir, f"summary_{coverage}x_ff{ff}.csv"), df_mean)
 
-            for type in ["Total GT", "Total ALT", "Rare GT"]:
+            for type in ["Total GT", "Total ALT"]:
                 plot_mean_data(df_mean, os.path.join(outdir, f"{type}_{coverage}_x_ff{ff}.png"), type)
 
 
@@ -127,15 +105,13 @@ def plot_mean_data(df, outdir, category):
     print(f"Biểu đồ đã được lưu tại: {outdir}")
 
 
-if __name__ == "__main__":
-    for chromosome in PARAMETERS["chrs"]:
-        
-        output_dir = os.path.join(PATHS["plot_directory"], chromosome)
-        os.makedirs(output_dir, exist_ok=True)
+if __name__ == "__main__":        
+    output_dir = os.path.join(PATHS["plot_directory"])
+    os.makedirs(output_dir, exist_ok=True)
 
-        read_and_process_single_samples(chromosome, "summary", output_dir)
-        read_and_process_nipt_samples(chromosome, "summary", output_dir)
-        print(f"Plots saved to {output_dir}")
+    read_and_process_single_samples(output_dir)
+    read_and_process_nipt_samples(output_dir)
+    print(f"Plots saved to {output_dir}")
 
 
 

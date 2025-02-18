@@ -9,7 +9,7 @@ def valid_alt(gt):
     return allens[1] == 1
 
 def get_af(af):
-    return int(100 * af)
+    return int(100 * min(af, 1-af))
 
 def has_alt(row, method):
     """

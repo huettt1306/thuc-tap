@@ -83,15 +83,17 @@ def ground_truth_vcf(name, chromosome):
     extract_vcf(name, get_vcf_ref(chromosome), path)
     return path
 
-def statistic_outdir(fq, chromosome):
+def statistic_outdir(fq, chromosome="all"):
+    if chromosome == "all":
+        return os.path.join(base_dir(fq), "statistic_output")
     return os.path.join(base_dir(fq), "statistic_output", f"{chromosome}")
 
-def statistic_variants(fq, chromosome):
+def statistic_variants(fq, chromosome="all"):
     return os.path.join(statistic_outdir(fq, chromosome), "variants.csv")
 
-def statistic_summary(fq, chromosome):
+def statistic_summary(fq, chromosome="all"):
     return os.path.join(statistic_outdir(fq, chromosome), "summary.csv")
     
-def statistic_rare_summary(fq, chromosome):
+def statistic_rare_summary(fq, chromosome="all"):
     return os.path.join(statistic_outdir(fq, chromosome), "rare_summary.csv")
     
